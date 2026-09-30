@@ -1,0 +1,55 @@
+name: mms_app
+description: "Benchmark Material Management System (Benchmark MMS) - Mobile & Tablet App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Backend & Database
+  supabase_flutter: ^2.8.4
+
+  # UI, Typography & Icons
+  google_fonts: ^6.3.2
+  cupertino_icons: ^1.0.8
+
+  # Charts & Visualizations
+  fl_chart: ^0.70.2
+
+  # Formatting & Utilities
+  intl: ^0.20.2
+  http: ^1.6.0
+
+  # Storage & Offline Cache
+  shared_preferences: ^2.5.3
+  flutter_secure_storage: 9.2.4
+
+  # Document Capture & File Picker
+  image_picker: ^1.1.2
+  file_picker: ^8.1.7
+
+  # Reporting, Export, Printing & Share
+  pdf: ^3.11.3
+  printing: ^5.14.3
+  share_plus: ^12.0.2
+  url_launcher: ^6.3.0
+  connectivity_plus: ^7.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/

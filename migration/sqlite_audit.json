@@ -1,0 +1,1048 @@
+{
+  "batches": {
+    "count": 0,
+    "ddl": "CREATE TABLE batches (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        batch_no TEXT ,\n        material_code TEXT,\n        description TEXT,\n        received_quantity REAL,\n        available_quantity REAL,\n        uom TEXT,\n        received_date TEXT,\n        department TEXT,\n        invoice_id INTEGER,\n        created_at TEXT DEFAULT CURRENT_TIMESTAMP\n    )",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "batch_no",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "material_code",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "description",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "received_quantity",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "available_quantity",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "uom",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "received_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 8,
+        "name": "department",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 9,
+        "name": "invoice_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 10,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "sample": null
+  },
+  "category_locations": {
+    "count": 0,
+    "ddl": "CREATE TABLE category_locations (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        category TEXT NOT NULL UNIQUE,\n        location TEXT,\n        last_updated TEXT DEFAULT CURRENT_TIMESTAMP\n    )",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "category",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "location",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "last_updated",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "seq": 0,
+        "name": "sqlite_autoindex_category_locations_1",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0
+      }
+    ],
+    "sample": null
+  },
+  "dispatch_batches": {
+    "count": 0,
+    "ddl": "CREATE TABLE dispatch_batches (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    dispatch_id INTEGER,\n    batch_no TEXT,\n    batch_id INTEGER,  -- \u2b50 NEW: Store the specific batch ID\n    quantity REAL,\n    created_at TEXT DEFAULT CURRENT_TIMESTAMP,\n    FOREIGN KEY(dispatch_id) REFERENCES dispatches(id) ON DELETE CASCADE,\n    FOREIGN KEY(batch_id) REFERENCES batches(id) ON DELETE CASCADE\n)",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "dispatch_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "batch_no",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "batch_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "quantity",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "batches",
+        "from": "batch_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "dispatches",
+        "from": "dispatch_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ],
+    "indexes": [],
+    "sample": null
+  },
+  "dispatches": {
+    "count": 0,
+    "ddl": "CREATE TABLE dispatches (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    date TEXT,\n    material_code TEXT NOT NULL,\n    product TEXT,\n    quantity REAL,\n    units TEXT,\n    location TEXT,\n    department TEXT,\n    created_at TEXT DEFAULT CURRENT_TIMESTAMP\n)",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "material_code",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "product",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "quantity",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "units",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "location",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "department",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 8,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "sample": null
+  },
+  "invoice_items": {
+    "count": 92,
+    "ddl": "CREATE TABLE invoice_items (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        invoice_id INTEGER NOT NULL,\n        material TEXT NOT NULL,\n        quantity REAL,\n        unit TEXT,\n        unit_price REAL,\n        discount_percentage REAL DEFAULT 0,\n        gst_percentage REAL,\n        igst_percentage REAL DEFAULT 0,   -- \u2b50 NEW\n        item_subtotal REAL,\n        item_gst_value REAL,\n        item_igst_value REAL DEFAULT 0,   -- \u2b50 NEW\n        item_total REAL,\n        batch_no TEXT, hsn_sac TEXT,\n        FOREIGN KEY (invoice_id) REFERENCES invoices (id) ON DELETE CASCADE\n    )",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "invoice_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "material",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "quantity",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "unit",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "unit_price",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "discount_percentage",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "gst_percentage",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 8,
+        "name": "igst_percentage",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 9,
+        "name": "item_subtotal",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 10,
+        "name": "item_gst_value",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 11,
+        "name": "item_igst_value",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 12,
+        "name": "item_total",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 13,
+        "name": "batch_no",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 14,
+        "name": "hsn_sac",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "invoices",
+        "from": "invoice_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ],
+    "indexes": [],
+    "sample": [
+      1,
+      1,
+      "111",
+      500.0,
+      "box",
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      "BATCH-215",
+      null
+    ]
+  },
+  "invoices": {
+    "count": 57,
+    "ddl": "CREATE TABLE invoices (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        purchase_id TEXT,\n        date TEXT,\n        invoice_no TEXT NOT NULL UNIQUE,\n        vendor TEXT,\n        no_of_items INTEGER DEFAULT 1,\n        total_excl_tax REAL DEFAULT 0,\n        total_gst REAL DEFAULT 0,\n        total_igst REAL DEFAULT 0,        -- \u2b50 NEW\n        cgst_percent REAL DEFAULT 0,\n        sgst_percent REAL DEFAULT 0,\n        round_off_value REAL DEFAULT 0,\n        final_total REAL DEFAULT 0,\n        grand_total REAL DEFAULT 0,\n        payment_status TEXT DEFAULT 'Pending',\n        remarks TEXT,\n        created_at TEXT DEFAULT CURRENT_TIMESTAMP\n    )",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "purchase_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "invoice_no",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "vendor",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "no_of_items",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": "1",
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "total_excl_tax",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "total_gst",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 8,
+        "name": "total_igst",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 9,
+        "name": "cgst_percent",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 10,
+        "name": "sgst_percent",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 11,
+        "name": "round_off_value",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 12,
+        "name": "final_total",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 13,
+        "name": "grand_total",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 14,
+        "name": "payment_status",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "'Pending'",
+        "pk": 0
+      },
+      {
+        "id": 15,
+        "name": "remarks",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 16,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "seq": 0,
+        "name": "sqlite_autoindex_invoices_1",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0
+      }
+    ],
+    "sample": [
+      1,
+      "BTE",
+      "2026-08-03",
+      "",
+      "",
+      1,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      "Pending",
+      null,
+      "2026-08-03 11:00:32"
+    ]
+  },
+  "materials": {
+    "count": 192,
+    "ddl": "CREATE TABLE materials (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        material_code TEXT NOT NULL,\n        description TEXT,\n        category TEXT,\n        opening_stock REAL DEFAULT 0,\n        quantity REAL DEFAULT 0,\n        reorder_level INTEGER DEFAULT 0,\n        purchase_date TEXT,\n        expiry_date TEXT,\n        lot_no TEXT,\n        unit_price REAL DEFAULT 0,\n        unit TEXT,\n        last_updated TEXT DEFAULT CURRENT_TIMESTAMP\n    , hsn_sac TEXT)",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "material_code",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "description",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "category",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "opening_stock",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "quantity",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "reorder_level",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "purchase_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 8,
+        "name": "expiry_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 9,
+        "name": "lot_no",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 10,
+        "name": "unit_price",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 11,
+        "name": "unit",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 12,
+        "name": "last_updated",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      },
+      {
+        "id": 13,
+        "name": "hsn_sac",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "sample": [
+      1,
+      "111",
+      "unsalted butter",
+      "chocolater",
+      202.0,
+      202.0,
+      0,
+      "2026-08-03",
+      "",
+      "BATCH-215",
+      0.0,
+      "box",
+      "2026-09-28",
+      null
+    ]
+  },
+  "stock_adjustments": {
+    "count": 219,
+    "ddl": "CREATE TABLE stock_adjustments (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    material_code TEXT NOT NULL,\n                    operation TEXT NOT NULL,\n                    amount REAL NOT NULL,\n                    reason TEXT,\n                    before_qty REAL,\n                    after_qty REAL,\n                    created_at TEXT DEFAULT CURRENT_TIMESTAMP\n                )",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "material_code",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "operation",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "amount",
+        "type": "REAL",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "reason",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "before_qty",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "after_qty",
+        "type": "REAL",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "sample": [
+      1,
+      "11",
+      "add",
+      25.0,
+      "Unrecorded invoice adjustment",
+      25.0,
+      50.0,
+      "2026-08-29 10:51:32"
+    ]
+  },
+  "transfers": {
+    "count": 180,
+    "ddl": "CREATE TABLE transfers (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        date TEXT,\n        code TEXT,\n        description TEXT,\n        lot_no TEXT,\n        outward REAL DEFAULT 0,\n        units TEXT,\n        department TEXT,\n        person TEXT,\n        return_units REAL DEFAULT 0,\n        availability REAL DEFAULT 0,\n        created_at TEXT DEFAULT CURRENT_TIMESTAMP\n    )",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "code",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "description",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "lot_no",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "outward",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "units",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "department",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 8,
+        "name": "person",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 9,
+        "name": "return_units",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 10,
+        "name": "availability",
+        "type": "REAL",
+        "notnull": 0,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "id": 11,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "sample": [
+      1,
+      "2026-09-07",
+      "501",
+      "SUGAR",
+      "BATCH-249",
+      1.0,
+      "bags",
+      "Kitchen",
+      "Bindhu",
+      0.0,
+      89.0,
+      "2026-09-07 08:50:41"
+    ]
+  },
+  "vendors": {
+    "count": 0,
+    "ddl": "CREATE TABLE vendors (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        name TEXT NOT NULL,\n        contact TEXT,\n        place TEXT,\n        pincode TEXT,\n        gstin TEXT,\n        material TEXT,\n        info TEXT,\n        created_at TEXT DEFAULT CURRENT_TIMESTAMP\n    )",
+    "columns": [
+      {
+        "id": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "id": 1,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 2,
+        "name": "contact",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 3,
+        "name": "place",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 4,
+        "name": "pincode",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 5,
+        "name": "gstin",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 6,
+        "name": "material",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 7,
+        "name": "info",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "id": 8,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "sample": null
+  }
+}

@@ -1,0 +1,366 @@
+{
+  "total_records_scanned": 151,
+  "category_audit": [
+    {
+      "original": "CHOCOLATE",
+      "suggested": "CHOCOLATE",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "DRY FRUITS",
+      "suggested": "DRY FRUITS",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "KITCHEN AND VARKEY FACTORY",
+      "suggested": "KITCHEN AND VARKEY FACTORY",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "OIL",
+      "suggested": "OIL",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "SPICES",
+      "suggested": "SPICES",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "TEA",
+      "suggested": "TEA",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "VARKEY",
+      "suggested": "VARKEY",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "VARKEY FACTORY",
+      "suggested": "VARKEY FACTORY",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "chocolater",
+      "suggested": "CHOCOLATE",
+      "reason": "Obvious spelling error for CHOCOLATE",
+      "status": "CONFIRMED_TYPO"
+    },
+    {
+      "original": "packing",
+      "suggested": "PACKING",
+      "reason": "Case difference",
+      "status": "SAFE"
+    },
+    {
+      "original": "spices",
+      "suggested": "SPICES",
+      "reason": "Case difference",
+      "status": "SAFE"
+    }
+  ],
+  "unit_audit": [
+    {
+      "original": "Box",
+      "suggested": "BOX",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "KG",
+      "suggested": "KG",
+      "reason": "Already correct",
+      "status": "SAFE"
+    },
+    {
+      "original": "Ltr",
+      "suggested": "LTR",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Nos",
+      "suggested": "NOS",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Pkt",
+      "suggested": "PKT",
+      "reason": "Unit symbol standardization",
+      "status": "SAFE"
+    },
+    {
+      "original": "bags",
+      "suggested": "BAGS",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "bottle",
+      "suggested": "BOTTLE",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "box",
+      "suggested": "BOX",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "can",
+      "suggested": "CAN",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "carton",
+      "suggested": "CARTON",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "kg",
+      "suggested": "KG",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "packet",
+      "suggested": "PKT",
+      "reason": "Unit symbol standardization",
+      "status": "SAFE"
+    },
+    {
+      "original": "pcs",
+      "suggested": "PCS",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "roll",
+      "suggested": "ROLL",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "tin",
+      "suggested": "TIN",
+      "reason": "Case normalization",
+      "status": "SAFE"
+    }
+  ],
+  "grade_audit": [],
+  "description_audit": [
+    {
+      "original": "Bay Leaf",
+      "suggested": "BAY LEAF",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Brown Tape 3\"",
+      "suggested": "BROWN TAPE 3\"",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Cherry",
+      "suggested": "CHERRY",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Collo Tape 1\"",
+      "suggested": "COLLO TAPE 1\"",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Collo Tape 3\"",
+      "suggested": "COLLO TAPE 3\"",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Cranberry",
+      "suggested": "CRANBERRY",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "DR 250ML Tumbler-4B",
+      "suggested": "DR 250ML TUMBLER-4B",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Dark cocoa powder (Alkaline)",
+      "suggested": "DARK COCOA POWDER (ALKALINE)",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Dates",
+      "suggested": "DATES",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Hand Gloves-26Pcs",
+      "suggested": "HAND GLOVES-26PCS",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Hazelnut",
+      "suggested": "HAZELNUT",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Hibiscus Tea Flower",
+      "suggested": "HIBISCUS TEA FLOWER",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Honey",
+      "suggested": "HONEY",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Kosher King Napkin",
+      "suggested": "KOSHER KING NAPKIN",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Lemon peel",
+      "suggested": "LEMON PEEL",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Makhana",
+      "suggested": "MAKHANA",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Moringa",
+      "suggested": "MORINGA",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "OII Paper Nice-REEM-5",
+      "suggested": "OII PAPER NICE-REEM-5",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Paper straw-8MM-WHITE",
+      "suggested": "PAPER STRAW-8MM-WHITE",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Peanut",
+      "suggested": "PEANUT",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Pet Jar -500ML(140)",
+      "suggested": "PET JAR -500ML(140)",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Ripple tumbler 120ML",
+      "suggested": "RIPPLE TUMBLER 120ML",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Rosemary",
+      "suggested": "ROSEMARY",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Rosepetals",
+      "suggested": "ROSEPETALS",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "SUN1000ML(SP20)-2CBo XVokey 39239090",
+      "suggested": "SUN1000ML(SP20)-2CBO XVOKEY 39239090",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Thulasi",
+      "suggested": "THULASI",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "Thyme",
+      "suggested": "THYME",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "White pepper",
+      "suggested": "WHITE PEPPER",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "light cocoa powder(milk)",
+      "suggested": "LIGHT COCOA POWDER(MILK)",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "mint",
+      "suggested": "MINT",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "rice crunch",
+      "suggested": "RICE CRUNCH",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "spear mint",
+      "suggested": "SPEAR MINT",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    },
+    {
+      "original": "unsalted butter",
+      "suggested": "UNSALTED BUTTER",
+      "reason": "Case & spacing normalization",
+      "status": "SAFE"
+    }
+  ],
+  "code_audit": [],
+  "proposed_corrections": []
+}

@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-09-30 08:23:23",
+  "model": "RapidOCR PP-OCRv3",
+  "scores": {
+    "Invoice Number Accuracy": 100.0,
+    "Date Accuracy": 100.0,
+    "Vendor Accuracy": 100.0,
+    "GSTIN Accuracy": 100.0,
+    "Line Items Count Accuracy": 100.0,
+    "Material Description Accuracy": 100.0,
+    "Quantity Accuracy": 100.0,
+    "Unit Accuracy": 100.0,
+    "Rate Accuracy": 100.0,
+    "Amount Accuracy": 100.0,
+    "Material Master Matching Accuracy": 90.9090909090909,
+    "Subtotal Accuracy": 100.0,
+    "Grand Total Accuracy": 100.0
+  },
+  "overall_accuracy": 99.3,
+  "inference_seconds": 7.71,
+  "parsed_invoice": {
+    "vendor": "Thangam Paks",
+    "invoice_no": "3163",
+    "date": "2026-09-02",
+    "subtotal": 85268.42,
+    "total_gst": 14612.18,
+    "grand_total": 98880.0,
+    "items_count": 11
+  }
+}
