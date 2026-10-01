@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/formatters/quantity_formatter.dart';
+import '../../core/services/notification_service.dart';
 import '../../data/models/notification_model.dart';
 import '../../presentation/providers/app_providers.dart';
 
@@ -91,6 +92,26 @@ class _NotificationsSheetState extends ConsumerState<NotificationsSheet> {
               ),
               Row(
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_active_outlined, size: 20, color: AppColors.primaryLight),
+                    tooltip: 'Send Test Push Notification',
+                    onPressed: () async {
+                      await NotificationService.instance.showNotification(
+                        id: 9999,
+                        title: '🔔 Benchmark MMS Notification Test',
+                        body: 'Push notifications are active and operating normally! Stock, expiry, and invoice alerts will appear here.',
+                        payload: 'system:test',
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Test notification sent to status bar!'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.textSecondary),
                     tooltip: 'Recalculate Alerts',

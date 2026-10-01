@@ -46,6 +46,7 @@ app.*.map.json
 /android/app/release
 .gradle/
 android/.gradle/
+android/build/
 *.apk
 *.aab
 

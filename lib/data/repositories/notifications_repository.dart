@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/services/notification_service.dart';
 import '../models/notification_model.dart';
 
 class NotificationsRepository {
@@ -69,6 +70,21 @@ class NotificationsRepository {
   Future<void> recalculateAlerts() async {
     try {
       await _client.rpc('generate_inventory_alerts');
+
+      // Check unread critical or warning notifications to alert user natively
+      final unreadAlerts = await fetchNotifications(unreadOnly: true, limit: 3);
+      for (final alert in unreadAlerts) {
+        if (alert.isCritical || alert.isWarning) {
+          NotificationService.instance.showFromNotificationRecord(
+            id: alert.id,
+            title: alert.title,
+            message: alert.message,
+            refType: alert.referenceType,
+            refId: alert.referenceId,
+            alertType: alert.type,
+          );
+        }
+      }
     } catch (e) {
       debugPrint('Warning running generate_inventory_alerts: $e');
     }

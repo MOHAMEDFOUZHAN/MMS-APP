@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/factory_constants.dart';
 import '../../core/responsive/responsive_breakpoints.dart';
 import '../../core/services/connection_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/services/pending_operations_service.dart';
 import '../../core/services/realtime_sync_service.dart';
 import '../../core/theme/glass_widgets.dart';
@@ -193,9 +195,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ReportsHubScreen(isEmbedded: true),
   ];
 
+  StreamSubscription<NotificationPayload>? _notificationSub;
+
   @override
   void initState() {
     super.initState();
+    _notificationSub = NotificationService.instance.onNotificationSelected.listen((payload) {
+      if (mounted) {
+        _handleNotificationNavigation(payload.refType, payload.refId);
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         ref.read(realtimeSyncServiceProvider);
@@ -205,6 +215,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         debugPrint('HomeShell init error: $e');
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _notificationSub?.cancel();
+    super.dispose();
   }
 
   void _handleNotificationNavigation(String refType, String refId) {
