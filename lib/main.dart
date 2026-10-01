@@ -38,7 +38,7 @@ class BenchmarkMmsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     debugPrint('>>> RENDERING BENCHMARK MMS APP');
     return MaterialApp(
-      title: 'Benchmark MMS',
+      title: 'demo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const AuthGate(),
