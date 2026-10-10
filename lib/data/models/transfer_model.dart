@@ -1,3 +1,5 @@
+import 'transfer_lot_allocation_model.dart';
+
 class TransferModel {
   final int id;
   final DateTime date;
@@ -11,6 +13,7 @@ class TransferModel {
   final double returnUnits;
   final double availability;
   final DateTime? createdAt;
+  final List<TransferLotAllocationModel> allocations;
 
   TransferModel({
     required this.id,
@@ -25,6 +28,7 @@ class TransferModel {
     this.returnUnits = 0.0,
     this.availability = 0.0,
     this.createdAt,
+    this.allocations = const [],
   });
 
   double get netChange => returnUnits - outward;
@@ -40,6 +44,11 @@ class TransferModel {
       }
     }
 
+    final rawAllocs = json['transfer_lot_allocations'] as List<dynamic>?;
+    final parsedAllocs = rawAllocs != null
+        ? rawAllocs.map((a) => TransferLotAllocationModel.fromJson(a as Map<String, dynamic>)).toList()
+        : <TransferLotAllocationModel>[];
+
     return TransferModel(
       id: (json['id'] as num?)?.toInt() ?? 0,
       date: parseDate(json['date']),
@@ -53,6 +62,7 @@ class TransferModel {
       returnUnits: (json['return_units'] as num?)?.toDouble() ?? 0.0,
       availability: (json['availability'] as num?)?.toDouble() ?? 0.0,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      allocations: parsedAllocs,
     );
   }
 

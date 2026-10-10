@@ -48,6 +48,7 @@ class DashboardSummaryModel {
   final int outOfStock;
   final int pendingInvoices;
   final int activeBatches;
+  final double totalInventoryValue;
   final double todayPurchaseValue;
   final int todayDispatches;
   final int todayTransfers;
@@ -61,6 +62,7 @@ class DashboardSummaryModel {
     this.outOfStock = 0,
     this.pendingInvoices = 0,
     this.activeBatches = 0,
+    this.totalInventoryValue = 0.0,
     this.todayPurchaseValue = 0.0,
     this.todayDispatches = 0,
     this.todayTransfers = 0,

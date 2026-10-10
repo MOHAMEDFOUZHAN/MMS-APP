@@ -66,8 +66,10 @@ class RealtimeSyncService {
         table: 'batches',
         callback: (payload) {
           debugPrint('>>> Realtime: batches table changed (${payload.eventType})');
+          _ref.invalidate(batchesListProvider);
           _ref.invalidate(activeBatchesProvider);
           _ref.invalidate(inwardHistoryProvider);
+          _ref.invalidate(materialsListProvider);
           _ref.invalidate(dashboardSummaryProvider);
         },
       );
@@ -80,6 +82,9 @@ class RealtimeSyncService {
         callback: (payload) {
           debugPrint('>>> Realtime: dispatches table changed (${payload.eventType})');
           _ref.invalidate(dispatchesListProvider);
+          _ref.invalidate(batchesListProvider);
+          _ref.invalidate(activeBatchesProvider);
+          _ref.invalidate(inwardHistoryProvider);
           _ref.invalidate(dashboardSummaryProvider);
           _ref.invalidate(materialsListProvider);
 

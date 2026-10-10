@@ -25,8 +25,8 @@ class GradeItem {
 }
 
 class FactoryConstants {
-  static const String appName = 'demo';
-  static const String appVersion = 'v3.0 (Supabase Edition)';
+  static const String appName = 'Benchmark MMS';
+  static const String appVersion = 'v3.1.0 (Build 7)';
 
   // Factory Departments
   static const List<String> departments = [

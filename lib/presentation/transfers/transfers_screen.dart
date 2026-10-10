@@ -97,10 +97,19 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
               children: [
                 _detailRow('Material Code', t.code),
                 _detailRow('Description', t.description.isNotEmpty ? t.description : t.code),
-                if (t.lotNo.isNotEmpty) _detailRow('Lot / Batch No', t.lotNo),
+                if (t.lotNo.isNotEmpty) _detailRow('Lot No', t.lotNo),
                 _detailRow('Department', t.department.isNotEmpty ? t.department : 'General'),
                 _detailRow('Handled Person', t.person.isNotEmpty ? t.person : '—'),
-                _detailRow('Transfer Date', AppDateFormatter.format(t.date)),
+                _detailRow('Date & Time', AppDateFormatter.formatWithTime(t.createdAt ?? t.date)),
+                if (t.allocations.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('Lot Allocations:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.secondary)),
+                  const SizedBox(height: 4),
+                  ...t.allocations.map((a) => Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Text('• ${a.lotNo}: ${QuantityFormatter.formatClean(a.quantity)} ${t.units}', style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AppColors.textSecondary)),
+                  )),
+                ],
                 const Divider(height: 20),
                 _detailRow('Outward Issued', QuantityFormatter.formatDualUnit(t.outward, t.units)),
                 _detailRow('Returned In', QuantityFormatter.formatDualUnit(t.returnUnits, t.units)),
@@ -292,7 +301,7 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      QuantityFormatter.formatDate(t.date),
+                      AppDateFormatter.formatWithTime(t.createdAt ?? t.date),
                       style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                     ),
                   ],
@@ -310,20 +319,18 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
               style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 4),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 2,
               children: [
                 Text(
                   'Code: ${t.code}',
                   style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                 ),
-                if (t.lotNo.isNotEmpty) ...[
-                  const SizedBox(width: 8),
+                if (t.lotNo.isNotEmpty)
                   Text('• Lot: ${t.lotNo}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                ],
-                if (t.person.isNotEmpty) ...[
-                  const SizedBox(width: 8),
+                if (t.person.isNotEmpty)
                   Text('• Person: ${t.person}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                ],
               ],
             ),
             const Divider(height: 16),

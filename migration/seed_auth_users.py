@@ -1,10 +1,11 @@
+﻿import os
 import psycopg2
 
 conn = psycopg2.connect(
     host='aws-0-ap-northeast-1.pooler.supabase.com',
     port=5432,
     user='postgres.japxiaxyabhhhclphbqr',
-    password='mapleconnect2307',
+    password=os.environ["SUPABASE_DB_PASSWORD"],
     dbname='postgres'
 )
 conn.autocommit = True

@@ -1,7 +1,8 @@
+﻿import os
 import psycopg2
 import json
 
-conn = psycopg2.connect(host='aws-0-ap-northeast-1.pooler.supabase.com', port=5432, user='postgres.japxiaxyabhhhclphbqr', password='mapleconnect2307', dbname='postgres', connect_timeout=15)
+conn = psycopg2.connect(host='aws-0-ap-northeast-1.pooler.supabase.com', port=5432, user='postgres.japxiaxyabhhhclphbqr', password=os.environ["SUPABASE_DB_PASSWORD"], dbname='postgres', connect_timeout=15)
 conn.autocommit = True
 cur = conn.cursor()
 

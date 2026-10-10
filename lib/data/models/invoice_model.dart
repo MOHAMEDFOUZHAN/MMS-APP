@@ -12,6 +12,7 @@ class InvoiceItemModel {
   final double itemGstValue;
   final double itemIgstValue;
   final double itemTotal;
+  final String lotNo;
   final String batchNo;
   final String hsnSac;
   final String grade;
@@ -30,12 +31,14 @@ class InvoiceItemModel {
     this.itemGstValue = 0.0,
     this.itemIgstValue = 0.0,
     this.itemTotal = 0.0,
+    this.lotNo = '',
     this.batchNo = '',
     this.hsnSac = '',
     this.grade = '',
   });
 
   factory InvoiceItemModel.fromJson(Map<String, dynamic> json) {
+    final lot = json['lot_no']?.toString() ?? json['batch_no']?.toString() ?? '';
     return InvoiceItemModel(
       id: (json['id'] as num?)?.toInt() ?? 0,
       invoiceId: (json['invoice_id'] as num?)?.toInt() ?? 0,
@@ -50,7 +53,8 @@ class InvoiceItemModel {
       itemGstValue: (json['item_gst_value'] as num?)?.toDouble() ?? 0.0,
       itemIgstValue: (json['item_igst_value'] as num?)?.toDouble() ?? 0.0,
       itemTotal: (json['item_total'] as num?)?.toDouble() ?? 0.0,
-      batchNo: json['batch_no']?.toString() ?? '',
+      lotNo: lot,
+      batchNo: json['batch_no']?.toString() ?? lot,
       hsnSac: json['hsn_sac']?.toString() ?? '',
       grade: json['grade']?.toString() ?? '',
     );
@@ -69,7 +73,8 @@ class InvoiceItemModel {
       'item_gst_value': itemGstValue,
       'item_igst_value': itemIgstValue,
       'item_total': itemTotal,
-      'batch_no': batchNo,
+      'lot_no': lotNo,
+      'batch_no': batchNo.isNotEmpty ? batchNo : lotNo,
       'hsn_sac': hsnSac,
       'grade': grade,
     };
@@ -150,7 +155,7 @@ class InvoiceModel {
       finalTotal: (json['final_total'] as num?)?.toDouble() ?? 0.0,
       paymentStatus: json['payment_status']?.toString() ?? 'Pending',
       remarks: json['remarks']?.toString() ?? '',
-      createdAt: json['created_at'] != null ? parseDate(json['created_at']) : null,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
       items: parsedItems,
     );
   }

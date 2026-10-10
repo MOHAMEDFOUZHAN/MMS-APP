@@ -9,7 +9,14 @@ import '../providers/app_providers.dart';
 import '../providers/spelling_providers.dart';
 
 class NewMaterialDialog extends ConsumerStatefulWidget {
-  const NewMaterialDialog({super.key});
+  final String? initialCode;
+  final String? initialDescription;
+
+  const NewMaterialDialog({
+    super.key,
+    this.initialCode,
+    this.initialDescription,
+  });
 
   @override
   ConsumerState<NewMaterialDialog> createState() => _NewMaterialDialogState();
@@ -29,6 +36,17 @@ class _NewMaterialDialogState extends ConsumerState<NewMaterialDialog> {
   bool _isCustomCategory = false;
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCode != null && widget.initialCode!.trim().isNotEmpty) {
+      _codeController.text = widget.initialCode!.trim();
+    }
+    if (widget.initialDescription != null && widget.initialDescription!.trim().isNotEmpty) {
+      _descController.text = widget.initialDescription!.trim();
+    }
+  }
 
   @override
   void dispose() {
@@ -55,8 +73,9 @@ class _NewMaterialDialogState extends ConsumerState<NewMaterialDialog> {
 
     try {
       final repo = ref.read(materialsRepositoryProvider);
+      final registeredCode = TextStandardizer.normalizeCode(_codeController.text);
       await repo.registerNewMaterial(
-        code: TextStandardizer.normalizeCode(_codeController.text),
+        code: registeredCode,
         description: TextStandardizer.normalizeBusinessText(_descController.text),
         category: finalCategory,
         unit: TextStandardizer.normalizeBusinessText(_selectedUnit),
@@ -66,7 +85,7 @@ class _NewMaterialDialogState extends ConsumerState<NewMaterialDialog> {
       );
 
       if (mounted) {
-        Navigator.of(context).pop(true);
+        Navigator.of(context).pop(registeredCode);
       }
     } catch (e) {
       setState(() {

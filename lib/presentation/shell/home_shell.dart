@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/factory_constants.dart';
 import '../../core/responsive/responsive_breakpoints.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/services/connection_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/pending_operations_service.dart';
@@ -27,144 +28,142 @@ import '../storage/storage_screen.dart';
 import '../transfers/transfers_screen.dart';
 import '../vendors/vendors_screen.dart';
 import '../warehouse/category_locations_screen.dart';
+import '../../features/mira/presentation/pages/mira_page.dart';
+import '../security/security_center_screen.dart';
 
-enum NavSection {
-  main('MAIN'),
-  transactions('TRANSACTIONS'),
-  materials('MATERIALS'),
-  operations('OPERATIONS'),
-  reporting('REPORTING');
-
-  final String title;
-  const NavSection(this.title);
-}
-
-class NavItemDef {
-  final int index;
+// ─── Primary navigation items (bottom bar / rail) ────────────────────────────
+class _PrimaryNavItem {
+  final int screenIndex;
   final String label;
   final IconData icon;
   final IconData selectedIcon;
-  final NavSection section;
-  final Color accentColor;
+  final Color accent;
 
-  const NavItemDef({
-    required this.index,
+  const _PrimaryNavItem({
+    required this.screenIndex,
     required this.label,
     required this.icon,
     required this.selectedIcon,
-    required this.section,
-    this.accentColor = AppColors.primaryLight,
+    this.accent = AppColors.primaryLight,
   });
 }
 
-const List<NavItemDef> _navItems = [
-  // 1. Dashboard (MAIN)
-  NavItemDef(
-    index: 0,
+const List<_PrimaryNavItem> _primaryNav = [
+  _PrimaryNavItem(
+    screenIndex: 0,
     label: 'Dashboard',
     icon: Icons.dashboard_outlined,
     selectedIcon: Icons.dashboard_rounded,
-    section: NavSection.main,
-    accentColor: AppColors.primaryLight,
+    accent: AppColors.primaryLight,
   ),
-  // 2. Invoices (TRANSACTIONS)
-  NavItemDef(
-    index: 1,
-    label: 'Invoices',
-    icon: Icons.receipt_long_outlined,
-    selectedIcon: Icons.receipt_long_rounded,
-    section: NavSection.transactions,
-    accentColor: AppColors.primary,
-  ),
-  // 3. Transfers (TRANSACTIONS)
-  NavItemDef(
-    index: 2,
-    label: 'Transfers',
-    icon: Icons.swap_horiz_rounded,
-    selectedIcon: Icons.swap_horiz_rounded,
-    section: NavSection.transactions,
-    accentColor: AppColors.accent,
-  ),
-  // 4. Materials (MATERIALS)
-  NavItemDef(
-    index: 3,
+  _PrimaryNavItem(
+    screenIndex: 3,
     label: 'Materials',
     icon: Icons.inventory_2_outlined,
     selectedIcon: Icons.inventory_2_rounded,
-    section: NavSection.materials,
-    accentColor: AppColors.primaryLight,
+    accent: AppColors.primaryLight,
   ),
-  // 5. Materials Master (MATERIALS)
-  NavItemDef(
-    index: 4,
-    label: 'Materials Master',
-    icon: Icons.dataset_outlined,
-    selectedIcon: Icons.dataset_rounded,
-    section: NavSection.materials,
-    accentColor: AppColors.primary,
+  _PrimaryNavItem(
+    screenIndex: 1,
+    label: 'Invoices',
+    icon: Icons.receipt_long_outlined,
+    selectedIcon: Icons.receipt_long_rounded,
+    accent: AppColors.primary,
   ),
-  // 6. Storage (MATERIALS)
-  NavItemDef(
-    index: 5,
+  _PrimaryNavItem(
+    screenIndex: 2,
+    label: 'Transfers',
+    icon: Icons.swap_horiz_rounded,
+    selectedIcon: Icons.swap_horiz_rounded,
+    accent: AppColors.accent,
+  ),
+  _PrimaryNavItem(
+    screenIndex: 5,
     label: 'Storage',
     icon: Icons.layers_outlined,
     selectedIcon: Icons.layers_rounded,
-    section: NavSection.materials,
-    accentColor: AppColors.primaryLight,
+    accent: AppColors.primaryLight,
   ),
-  // 7. Vendors (OPERATIONS)
-  NavItemDef(
-    index: 6,
-    label: 'Vendors',
-    icon: Icons.storefront_outlined,
-    selectedIcon: Icons.storefront_rounded,
-    section: NavSection.operations,
-    accentColor: AppColors.secondary,
-  ),
-  // 8. Dispatch (OPERATIONS)
-  NavItemDef(
-    index: 7,
+  _PrimaryNavItem(
+    screenIndex: 7,
     label: 'Dispatch',
     icon: Icons.local_shipping_outlined,
     selectedIcon: Icons.local_shipping_rounded,
-    section: NavSection.operations,
-    accentColor: AppColors.secondary,
+    accent: AppColors.secondary,
   ),
-  // 9. Stock Adjustment (OPERATIONS)
-  NavItemDef(
-    index: 8,
+];
+
+// ─── Secondary navigation items (More menu) ───────────────────────────────────
+class _SecondaryNavItem {
+  final int? screenIndex; // null = open as push route
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final bool isMira;
+
+  const _SecondaryNavItem({
+    this.screenIndex,
+    required this.label,
+    required this.icon,
+    this.accent = AppColors.primaryLight,
+    this.isMira = false,
+  });
+}
+
+const List<_SecondaryNavItem> _secondaryNav = [
+  _SecondaryNavItem(
+    label: 'MIRA AI',
+    icon: Icons.auto_awesome,
+    accent: Color(0xFF06B6D4),
+    isMira: true,
+  ),
+  _SecondaryNavItem(
+    screenIndex: 4,
+    label: 'Materials Master',
+    icon: Icons.dataset_outlined,
+    accent: AppColors.primary,
+  ),
+  _SecondaryNavItem(
+    screenIndex: 6,
+    label: 'Vendors',
+    icon: Icons.storefront_outlined,
+    accent: AppColors.secondary,
+  ),
+  _SecondaryNavItem(
+    screenIndex: 8,
     label: 'Stock Adjustment',
     icon: Icons.tune_rounded,
-    selectedIcon: Icons.tune_rounded,
-    section: NavSection.operations,
-    accentColor: AppColors.warning,
+    accent: AppColors.warning,
   ),
-  // 10. Shelf Mapping (OPERATIONS)
-  NavItemDef(
-    index: 9,
+  _SecondaryNavItem(
+    screenIndex: 9,
     label: 'Shelf Mapping',
     icon: Icons.grid_view_outlined,
-    selectedIcon: Icons.grid_view_rounded,
-    section: NavSection.operations,
-    accentColor: Color(0xFF8B5CF6),
+    accent: Color(0xFF8B5CF6),
   ),
-  // 11. MUR (REPORTING)
-  NavItemDef(
-    index: 10,
-    label: 'MUR',
+  _SecondaryNavItem(
+    screenIndex: 10,
+    label: 'MUR Report',
     icon: Icons.analytics_outlined,
-    selectedIcon: Icons.analytics_rounded,
-    section: NavSection.reporting,
-    accentColor: Color(0xFF8B5CF6),
+    accent: Color(0xFF8B5CF6),
   ),
-  // 12. Reports (REPORTING)
-  NavItemDef(
-    index: 11,
-    label: 'Reports',
+  _SecondaryNavItem(
+    screenIndex: 11,
+    label: 'Reports Hub',
     icon: Icons.assessment_outlined,
-    selectedIcon: Icons.assessment_rounded,
-    section: NavSection.reporting,
-    accentColor: AppColors.success,
+    accent: AppColors.success,
+  ),
+  _SecondaryNavItem(
+    screenIndex: null,
+    label: 'Security Center',
+    icon: Icons.shield_outlined,
+    accent: Color(0xFF10B981),
+  ),
+  _SecondaryNavItem(
+    screenIndex: null,
+    label: 'Settings',
+    icon: Icons.settings_outlined,
+    accent: AppColors.textSecondary,
   ),
 ];
 
@@ -179,20 +178,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
 
-  // Exact 12 screens matching navigation item definitions
+  // 12 screens in exact order matching screen indices
   late final List<Widget> _screens = const [
-    DashboardScreen(),
-    InvoiceListScreen(),
-    TransfersScreen(isEmbedded: true),
-    MaterialsScreen(),
-    MaterialsMasterScreen(isEmbedded: true),
-    StorageScreen(),
-    VendorsScreen(isEmbedded: true),
-    DispatchScreen(),
-    StockAdjustmentScreen(isEmbedded: true),
-    CategoryLocationsScreen(isEmbedded: true),
-    MurReport(isEmbedded: true),
-    ReportsHubScreen(isEmbedded: true),
+    DashboardScreen(),       // 0
+    InvoiceListScreen(),     // 1
+    TransfersScreen(isEmbedded: true), // 2
+    MaterialsScreen(),       // 3
+    MaterialsMasterScreen(isEmbedded: true), // 4
+    StorageScreen(),         // 5
+    VendorsScreen(isEmbedded: true), // 6
+    DispatchScreen(),        // 7
+    StockAdjustmentScreen(isEmbedded: true), // 8
+    CategoryLocationsScreen(isEmbedded: true), // 9
+    MurReport(isEmbedded: true), // 10
+    ReportsHubScreen(isEmbedded: true), // 11
   ];
 
   StreamSubscription<NotificationPayload>? _notificationSub;
@@ -207,6 +206,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 1. Independent OTA Update Check
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) {
+          AppUpdateService.instance.checkAndPromptUpdate(context: context);
+        }
+      });
+
+      // 2. Background Sync and Alerts
       try {
         ref.read(realtimeSyncServiceProvider);
         ref.read(pendingOperationsProvider.notifier).processPendingQueue();
@@ -229,20 +236,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ref.read(materialsFilterProvider.notifier).update(
               (state) => state.copyWith(search: refId),
             );
-        setState(() => _currentIndex = 3); // Materials screen
+        setState(() => _currentIndex = 3);
         break;
       case 'invoice':
-        setState(() => _currentIndex = 1); // Invoices screen
+        setState(() => _currentIndex = 1);
         break;
       case 'transfer':
-        setState(() => _currentIndex = 2); // Transfers screen
+        setState(() => _currentIndex = 2);
         break;
       case 'batch':
       case 'storage':
-        setState(() => _currentIndex = 5); // Storage screen
+        setState(() => _currentIndex = 5);
         break;
       case 'dispatch':
-        setState(() => _currentIndex = 7); // Dispatch screen
+        setState(() => _currentIndex = 7);
         break;
       default:
         break;
@@ -258,7 +265,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       cancelText: 'Cancel',
       isDestructive: true,
     );
-
     if (confirmed) {
       ref.read(authNotifierProvider.notifier).signOut();
     }
@@ -289,26 +295,51 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isTabletOrDesktop = ResponsiveBreakpoints.isTabletOrLarger(context);
-
-    if (isTabletOrDesktop) {
-      return _buildDesktopLayout(context);
-    } else {
-      return _buildMobileLayout(context);
-    }
+  void _openMoreMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _MoreMenuSheet(
+        currentIndex: _currentIndex,
+        onSelect: (item) {
+          if (item.isMira) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const MiraPage()));
+          } else if (item.label == 'Security Center') {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityCenterScreen()));
+          } else if (item.screenIndex == null) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+          } else {
+            setState(() => _currentIndex = item.screenIndex!);
+          }
+        },
+      ),
+    );
   }
 
-  Widget _buildDesktopLayout(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
+    final isTablet = ResponsiveBreakpoints.isTabletOrLarger(context);
+    if (isTablet) {
+      return _buildTabletLayout(context);
+    }
+    return _buildMobileLayout(context);
+  }
+
+  // ─── TABLET LAYOUT: Compact NavigationRail + content ───────────────────────
+  Widget _buildTabletLayout(BuildContext context) {
+    final primaryIndex = _primaryNav.indexWhere((n) => n.screenIndex == _currentIndex);
+
     return Scaffold(
       key: _scaffoldKey,
-      appBar: _buildAppBar(context, isTablet: true),
+      appBar: _buildAppBar(isTablet: true),
       body: AmbientBackground(
         child: Row(
           children: [
-            _buildSidebar(context, isDrawer: false),
+            // Compact Navigation Rail
+            _buildCompactRail(primaryIndex),
             const VerticalDivider(width: 1, thickness: 1, color: AppColors.glassBorder),
+            // Main Content
             Expanded(
               child: IndexedStack(
                 index: _currentIndex,
@@ -321,62 +352,29 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
-    // Bottom bar handles direct access to the top 4 modules, plus 'All Modules' for drawer
-    final bottomNavIndex = _currentIndex < 4 ? _currentIndex : 4;
-
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: _buildAppBar(context, isTablet: false),
-      drawer: Drawer(
-        backgroundColor: const Color(0xF20A0F1D),
-        child: _buildSidebar(context, isDrawer: true),
-      ),
-      body: AmbientBackground(
-        child: IndexedStack(
-          index: _currentIndex,
-          children: _screens,
-        ),
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xF2020617),
-          border: Border(top: BorderSide(color: AppColors.glassBorder)),
-        ),
-        child: NavigationBar(
-          selectedIndex: bottomNavIndex,
-          onDestinationSelected: (idx) {
-            if (idx == 4) {
-              _scaffoldKey.currentState?.openDrawer();
-            } else {
-              setState(() => _currentIndex = idx);
-            }
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard_rounded),
-              label: 'Dashboard',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long_rounded),
-              label: 'Invoices',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.swap_horiz_rounded),
-              selectedIcon: Icon(Icons.swap_horiz_rounded),
-              label: 'Transfers',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2_rounded),
-              label: 'Materials',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.menu_rounded),
-              selectedIcon: Icon(Icons.menu_open_rounded),
-              label: 'All Modules',
+  Widget _buildCompactRail(int primaryIndex) {
+    return Container(
+      width: 72,
+      color: const Color(0xF00A0F1D),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            // Primary nav items
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  for (int i = 0; i < _primaryNav.length; i++)
+                    _buildRailItem(_primaryNav[i], isSelected: primaryIndex == i, index: i),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Divider(color: AppColors.glassBorder, height: 1),
+                  ),
+                  // More button
+                  _buildRailMoreButton(),
+                ],
+              ),
             ),
           ],
         ),
@@ -384,9 +382,228 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, {required bool isTablet}) {
+  Widget _buildRailItem(_PrimaryNavItem nav, {required bool isSelected, required int index}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: Tooltip(
+        message: nav.label,
+        preferBelow: false,
+        child: InkWell(
+          onTap: () => setState(() => _currentIndex = nav.screenIndex),
+          borderRadius: BorderRadius.circular(12),
+          splashColor: nav.accent.withValues(alpha: 0.2),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 54,
+            decoration: BoxDecoration(
+              color: isSelected ? nav.accent.withValues(alpha: 0.18) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? nav.accent.withValues(alpha: 0.5) : Colors.transparent,
+              ),
+              boxShadow: isSelected
+                  ? [BoxShadow(color: nav.accent.withValues(alpha: 0.25), blurRadius: 12)]
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isSelected ? nav.selectedIcon : nav.icon,
+                  size: 22,
+                  color: isSelected ? nav.accent : AppColors.textSecondary,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  nav.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? nav.accent : AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRailMoreButton() {
+    final isSecondary = _secondaryNav.any((n) => n.screenIndex == _currentIndex);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: Tooltip(
+        message: 'More Modules',
+        preferBelow: false,
+        child: InkWell(
+          onTap: _openMoreMenu,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 54,
+            decoration: BoxDecoration(
+              color: isSecondary
+                  ? AppColors.primaryLight.withValues(alpha: 0.14)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSecondary
+                    ? AppColors.primaryLight.withValues(alpha: 0.4)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isSecondary ? Icons.apps_rounded : Icons.apps_outlined,
+                  size: 22,
+                  color: isSecondary ? AppColors.primaryLight : AppColors.textSecondary,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'More',
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: isSecondary ? FontWeight.w700 : FontWeight.w500,
+                    color: isSecondary ? AppColors.primaryLight : AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── MOBILE LAYOUT: Bottom navigation bar ────────────────────────────────────
+  Widget _buildMobileLayout(BuildContext context) {
+    final primaryIndex = _primaryNav.indexWhere((n) => n.screenIndex == _currentIndex);
+    final bottomIndex = primaryIndex >= 0 ? primaryIndex : _primaryNav.length;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: _buildAppBar(isTablet: false),
+      body: AmbientBackground(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
+      ),
+      bottomNavigationBar: _buildBottomNav(bottomIndex),
+    );
+  }
+
+  Widget _buildBottomNav(int bottomIndex) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xF2020617),
+        border: Border(top: BorderSide(color: AppColors.glassBorder)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Row(
+            children: [
+              for (int i = 0; i < _primaryNav.length; i++)
+                Expanded(child: _buildBottomNavItem(_primaryNav[i], isSelected: bottomIndex == i, index: i)),
+              Expanded(child: _buildBottomMoreItem(bottomIndex == _primaryNav.length)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem(_PrimaryNavItem nav, {required bool isSelected, required int index}) {
+    return InkWell(
+      onTap: () => setState(() => _currentIndex = nav.screenIndex),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? nav.accent.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? nav.selectedIcon : nav.icon,
+              size: 22,
+              color: isSelected ? nav.accent : AppColors.textMuted,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              nav.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? nav.accent : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomMoreItem(bool isSelected) {
+    return InkWell(
+      onTap: _openMoreMenu,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryLight.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.apps_rounded : Icons.apps_outlined,
+              size: 22,
+              color: isSelected ? AppColors.primaryLight : AppColors.textMuted,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'More',
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? AppColors.primaryLight : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── APP BAR ─────────────────────────────────────────────────────────────────
+  PreferredSizeWidget _buildAppBar({required bool isTablet}) {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(62),
+      preferredSize: const Size.fromHeight(60),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xE60A0F1D),
@@ -403,70 +620,162 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (!isTablet) ...[
-                  IconButton(
-                    icon: const Icon(Icons.menu_rounded, color: AppColors.textPrimary, size: 22),
-                    tooltip: 'All Modules',
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                Container(
-                  width: 34,
-                  height: 34,
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 8,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final isNarrow = width < 480;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Logo
+                    Container(
+                      width: isNarrow ? 28 : 32,
+                      height: isNarrow ? 28 : 32,
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                          ),
+                        ],
                       ),
+                      child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+                    ),
+                    SizedBox(width: isNarrow ? 8 : 10),
+                    // Title and status
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              FactoryConstants.appName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: isNarrow ? 14 : 16,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: isNarrow ? 6 : 8),
+                          ConnectionStatusIndicator(compact: isNarrow),
+                          ValueListenableBuilder<AppVersionInfo?>(
+                            valueListenable: AppUpdateService.instance.updateAvailableNotifier,
+                            builder: (context, update, _) {
+                              if (update == null) return const SizedBox.shrink();
+                              return Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: InkWell(
+                                  onTap: () => AppUpdateService.instance.showUpdateDialog(context, update),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: AppColors.primaryLight),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.primary.withValues(alpha: 0.4),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.system_update_rounded, size: 14, color: AppColors.primaryLight),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Update v${update.versionName}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    // Current screen badge (tablet/desktop only)
+                    if (isTablet && width >= 540) ...[
+                      _buildCurrentScreenBadge(),
+                      const SizedBox(width: 4),
                     ],
-                  ),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        FactoryConstants.appName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                          letterSpacing: -0.2,
+                    // MIRA AI Assistant Quick Launch
+                    IconButton(
+                      icon: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF06B6D4), Color(0xFF6366F1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF06B6D4).withValues(alpha: 0.45),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
                         ),
+                        child: const Icon(Icons.auto_awesome, size: 15, color: Colors.white),
                       ),
-                      const SizedBox(height: 2),
-                      const ConnectionStatusIndicator(),
-                    ],
-                  ),
-                ),
-                NotificationBellIcon(onNavigateToReference: _handleNotificationNavigation),
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.primaryLight),
-                  tooltip: 'Sync Realtime Data',
-                  onPressed: _refreshAllData,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.logout_rounded, size: 20, color: AppColors.danger),
-                  tooltip: 'Sign Out',
-                  onPressed: _confirmLogout,
-                ),
-              ],
+                      tooltip: 'MIRA AI Brain',
+                      splashRadius: 22,
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MiraPage()),
+                      ),
+                    ),
+                    NotificationBellIcon(onNavigateToReference: _handleNotificationNavigation),
+                    IconButton(
+                      icon: const Icon(Icons.system_update_rounded, size: 20, color: AppColors.primaryLight),
+                      tooltip: 'Check Software Update',
+                      splashRadius: 20,
+                      onPressed: () => AppUpdateService.instance.checkAndPromptUpdate(context: context, forceManual: true),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.shield_outlined, size: 20, color: Color(0xFF10B981)),
+                      tooltip: 'Security Center',
+                      splashRadius: 20,
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityCenterScreen())),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined, size: 20, color: AppColors.textSecondary),
+                      tooltip: 'Settings',
+                      splashRadius: 20,
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.primaryLight),
+                      tooltip: 'Sync Realtime Data',
+                      splashRadius: 20,
+                      onPressed: _refreshAllData,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.logout_rounded, size: 20, color: AppColors.danger),
+                      tooltip: 'Sign Out',
+                      splashRadius: 20,
+                      onPressed: _confirmLogout,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -474,144 +783,110 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  Widget _buildSidebar(BuildContext context, {required bool isDrawer}) {
+  Widget _buildCurrentScreenBadge() {
+    final primary = _primaryNav.firstWhere(
+      (n) => n.screenIndex == _currentIndex,
+      orElse: () => const _PrimaryNavItem(screenIndex: -1, label: '', icon: Icons.apps_outlined, selectedIcon: Icons.apps_rounded),
+    );
+    final secondary = _secondaryNav.firstWhere(
+      (n) => n.screenIndex == _currentIndex,
+      orElse: () => const _SecondaryNavItem(label: '', icon: Icons.apps_outlined),
+    );
+    final label = primary.label.isNotEmpty ? primary.label : secondary.label;
+    final icon = primary.label.isNotEmpty ? primary.selectedIcon : secondary.icon;
+    if (label.isEmpty) return const SizedBox.shrink();
     return Container(
-      width: isDrawer ? 280 : 230,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: const Color(0xF20A0F1D),
-        boxShadow: isDrawer
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 20,
-                  offset: const Offset(4, 0),
-                ),
-              ]
-            : null,
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AppColors.primaryLight),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primaryLight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── More Menu Bottom Sheet ───────────────────────────────────────────────────
+class _MoreMenuSheet extends StatelessWidget {
+  final int currentIndex;
+  final void Function(_SecondaryNavItem item) onSelect;
+
+  const _MoreMenuSheet({required this.currentIndex, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xF50A0F1D),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: AppColors.glassBorder)),
       ),
       child: SafeArea(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'BENCHMARK MMS',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.3,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'FACTORY PORTAL',
-                          style: GoogleFonts.inter(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.0,
-                            color: AppColors.primaryLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            // Handle
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.glassBorder,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.glassBorder),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                children: [
-                  for (final section in NavSection.values) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(left: 14, top: 12, bottom: 4),
-                      child: Text(
-                        section.title,
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textMuted.withValues(alpha: 0.65),
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ),
-                    for (final item in _navItems.where((i) => i.section == section))
-                      _buildNavItem(item, isDrawer: isDrawer),
-                  ],
-                ],
-              ),
-            ),
-            const Divider(height: 1, thickness: 1, color: AppColors.glassBorder),
+            // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Row(
                 children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.success,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.success.withValues(alpha: 0.8),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
+                  const Icon(Icons.apps_rounded, size: 18, color: AppColors.primaryLight),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Online • Sync Live',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
+                  Text(
+                    'All Modules',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.settings_outlined, size: 18, color: AppColors.textMuted),
-                    tooltip: 'Settings',
-                    onPressed: () {
-                      if (isDrawer) Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                    },
-                  ),
                 ],
+              ),
+            ),
+            const Divider(height: 1, color: AppColors.glassBorder),
+            // Grid of secondary nav items
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 1.15,
+                ),
+                itemCount: _secondaryNav.length,
+                itemBuilder: (context, i) {
+                  final item = _secondaryNav[i];
+                  final isSelected = item.screenIndex == currentIndex;
+                  return _buildMenuGridItem(context, item, isSelected);
+                },
               ),
             ),
           ],
@@ -620,85 +895,53 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  Widget _buildNavItem(NavItemDef item, {required bool isDrawer}) {
-    final isSelected = _currentIndex == item.index;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: InkWell(
-        onTap: () {
-          if (isDrawer) Navigator.pop(context);
-          setState(() => _currentIndex = item.index);
-        },
-        borderRadius: BorderRadius.circular(10),
-        splashColor: item.accentColor.withValues(alpha: 0.15),
-        highlightColor: item.accentColor.withValues(alpha: 0.05),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? item.accentColor.withValues(alpha: 0.16) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected
-                  ? item.accentColor.withValues(alpha: 0.45)
-                  : Colors.transparent,
-              width: 1,
+  Widget _buildMenuGridItem(BuildContext context, _SecondaryNavItem item, bool isSelected) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        onSelect(item);
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? item.accent.withValues(alpha: 0.2)
+              : const Color(0x221E293B),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected
+                ? item.accent.withValues(alpha: 0.5)
+                : AppColors.glassBorder,
+          ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: item.accent.withValues(alpha: 0.2), blurRadius: 10)]
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              item.icon,
+              size: 26,
+              color: isSelected ? item.accent : AppColors.textSecondary,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: item.accentColor.withValues(alpha: 0.22),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 22,
-                child: Center(
-                  child: Icon(
-                    isSelected ? item.selectedIcon : item.icon,
-                    size: 19,
-                    color: isSelected ? item.accentColor : AppColors.textSecondary,
-                  ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                item.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? item.accent : AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? Colors.white : AppColors.textSecondary,
-                  ),
-                ),
-              ),
-              if (isSelected)
-                Container(
-                  width: 3.5,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: item.accentColor,
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: item.accentColor.withValues(alpha: 0.8),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

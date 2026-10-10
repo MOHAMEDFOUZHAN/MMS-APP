@@ -4,8 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/factory_constants.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/theme/glass_widgets.dart';
 import '../providers/app_providers.dart';
+import '../owner/owner_login_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +21,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController(text: 'bm');
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        AppUpdateService.instance.checkAndPromptUpdate(context: context);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -234,6 +246,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Executive Owner Access Link
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const OwnerLoginScreen()),
+                          );
+                        },
+                        icon: const Icon(Icons.admin_panel_settings_outlined, size: 16, color: Color(0xFFF59E0B)),
+                        label: Text(
+                          'Owner / Executive Portal',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                            color: const Color(0xFFF59E0B),
+                          ),
+                        ),
                       ),
                     ],
                   ),

@@ -294,10 +294,10 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined, size: 12, color: AppColors.textMuted),
+                    const Icon(Icons.access_time, size: 12, color: AppColors.textMuted),
                     const SizedBox(width: 4),
                     Text(
-                      AppDateFormatter.format(inv.date),
+                      AppDateFormatter.formatWithTime(inv.createdAt ?? inv.date),
                       style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],

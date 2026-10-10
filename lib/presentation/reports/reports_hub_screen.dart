@@ -69,7 +69,7 @@ class ReportsHubScreen extends StatelessWidget {
       ),
       _ReportDef(
         title: 'Expiring Items Report',
-        subtitle: 'Items approaching shelf-life expiration within 30 days',
+        subtitle: 'Items approaching shelf-life expiration based on alert settings',
         icon: Icons.timer_outlined,
         color: const Color(0xFFF97316),
         screen: const ExpiringReport(),

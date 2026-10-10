@@ -6,7 +6,9 @@ import '../models/dashboard_summary_model.dart';
 class DashboardRepository {
   SupabaseClient get _client => SupabaseConfig.client;
 
-  Future<DashboardSummaryModel> fetchDashboardSummary() async {
+  Future<DashboardSummaryModel> fetchDashboardSummary({
+    int invoiceMaterialExpiryAlertDays = 30,
+  }) async {
     try {
       final now = DateTime.now();
       final todayStr = now.toIso8601String().split('T')[0];
@@ -15,20 +17,22 @@ class DashboardRepository {
       final totalMaterialsRes = await _client.from('materials').select('id');
       final totalMaterials = (totalMaterialsRes as List).length;
 
-      // 2. Reorder Items
+      // 2. Reorder Items & Inventory Valuation
       final allMaterials = await _client
           .from('materials')
-          .select('material_code, description, category, quantity, reorder_level, expiry_date, unit');
+          .select('material_code, description, category, quantity, unit_price, reorder_level, expiry_date, unit');
 
       int reorderCount = 0;
       int expiringCount = 0;
       int outOfStockCount = 0;
+      double totalInventoryValue = 0.0;
 
       final categoryMap = <String, Map<String, dynamic>>{};
       final materialMap = <String, Map<String, dynamic>>{};
 
       for (final row in allMaterials as List<dynamic>) {
         final qty = (row['quantity'] as num?)?.toDouble() ?? 0.0;
+        final unitPrice = (row['unit_price'] as num?)?.toDouble() ?? 0.0;
         final reorder = (row['reorder_level'] as num?)?.toDouble() ?? 0.0;
         final expiry = row['expiry_date']?.toString();
         final cat = (row['category']?.toString().trim().isNotEmpty == true)
@@ -37,6 +41,10 @@ class DashboardRepository {
         final code = row['material_code']?.toString() ?? '';
         final desc = row['description']?.toString() ?? code;
         final unit = row['unit']?.toString() ?? 'kg';
+
+        if (qty > 0.0001 && unitPrice > 0) {
+          totalInventoryValue += (qty * unitPrice);
+        }
 
         if (qty <= 0.0001) {
           outOfStockCount++;
@@ -47,8 +55,10 @@ class DashboardRepository {
         if (expiry != null && expiry.isNotEmpty && expiry != '-') {
           try {
             final expDate = DateTime.parse(expiry.split(' ')[0]);
-            final diff = expDate.difference(now).inDays;
-            if (diff >= 0 && diff <= 30) {
+            final expMidnight = DateTime(expDate.year, expDate.month, expDate.day);
+            final nowMidnight = DateTime(now.year, now.month, now.day);
+            final diff = expMidnight.difference(nowMidnight).inDays;
+            if (diff >= 0 && diff <= invoiceMaterialExpiryAlertDays) {
               expiringCount++;
             }
           } catch (_) {}
@@ -133,6 +143,7 @@ class DashboardRepository {
         outOfStock: outOfStockCount,
         pendingInvoices: pendingInvoices,
         activeBatches: activeBatches,
+        totalInventoryValue: totalInventoryValue,
         todayPurchaseValue: todayPurchaseValue,
         todayDispatches: todayDispatches,
         todayTransfers: todayTransfers,

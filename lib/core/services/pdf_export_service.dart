@@ -8,6 +8,7 @@ import '../../data/models/invoice_model.dart';
 import '../../data/models/material_model.dart';
 import '../../data/models/report_models.dart';
 import '../../data/models/transfer_model.dart';
+import '../formatters/app_date_formatter.dart';
 import '../formatters/quantity_formatter.dart';
 
 class PdfExportService {
@@ -47,7 +48,7 @@ class PdfExportService {
           pw.SizedBox(height: 24),
           _buildSignatorySection(),
         ],
-        footer: (context) => _buildFooter(context, 'Benchmark MMS • MAPLE PRO Manufacturing'),
+        footer: (context) => _buildFooter(context, 'Benchmark MMS • Material Management System'),
       ),
     );
 
@@ -71,7 +72,7 @@ class PdfExportService {
             children: [
               pw.Text('BENCHMARK MMS',
                   style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _brandPrimary)),
-              pw.Text('MAPLE PRO Material Management & Inward System',
+              pw.Text('Material Management & Inward System',
                   style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
               pw.Text('Confidential Inventory & Purchase Record',
                   style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
@@ -162,7 +163,7 @@ class PdfExportService {
     final headers = [
       '#',
       'Material Code',
-      'Lot / Batch',
+      'Lot No',
       'HSN/SAC',
       'Qty',
       'Unit',
@@ -177,10 +178,11 @@ class PdfExportService {
       final idx = entry.key + 1;
       final it = entry.value;
       final gst = it.gstPercentage > 0 ? it.gstPercentage : it.igstPercentage;
+      final lot = it.lotNo.isNotEmpty ? it.lotNo : it.batchNo;
       return [
         idx.toString(),
         it.material,
-        it.batchNo.isNotEmpty ? it.batchNo : '-',
+        lot.isNotEmpty ? lot : '-',
         it.hsnSac.isNotEmpty ? it.hsnSac : '-',
         QuantityFormatter.format3Decimals(it.quantity),
         it.unit,
@@ -515,43 +517,89 @@ class PdfExportService {
   }
 
   /// =========================================================================
-  /// 7. ACTIVE STORAGE REGISTER REPORT (A4 Landscape)
+  /// 7. STORAGE REGISTER REPORT (A4 Landscape - Current Stock / All History)
   /// =========================================================================
-  static Future<void> printStorageReport(List<BatchModel> rows, {bool share = false}) async {
+  static Future<void> printStorageReport(
+    List<BatchModel> rows, {
+    bool isAllHistory = false,
+    String? subtitle,
+    String? dateFilter,
+    bool share = false,
+  }) async {
+    // Current Storage Print: ONLY batches with available_quantity > 0 appear
+    final List<BatchModel> toPrint = isAllHistory
+        ? rows
+        : rows.where((b) => b.availableQuantity > 0.0001).toList();
+
     final pdf = pw.Document();
+
+    final title = isAllHistory ? 'Storage History' : 'Storage Register';
+
+    final headerSubtitle = (dateFilter != null && dateFilter.isNotEmpty)
+        ? (subtitle != null ? '$subtitle | Date Filter: $dateFilter' : 'Date Filter: $dateFilter')
+        : subtitle;
+
+    final headers = ['Date', 'Time', 'Batch No', 'Description', 'Department', 'Stock In', 'Availability'];
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(24),
-        header: (context) => _buildReportHeader('Active Storage Register / Batch Inventory'),
+        header: (context) => _buildCleanReportHeader(title, subtitle: headerSubtitle),
         build: (context) => [
           pw.TableHelper.fromTextArray(
-            headers: ['Batch No', 'Code', 'Description', 'Department', 'Received Qty', 'Available Qty', 'UOM', 'Received Date'],
-            data: rows.map((b) => [
-              b.batchNo,
-              b.materialCode,
-              b.description,
-              b.department,
-              QuantityFormatter.format3Decimals(b.receivedQuantity),
-              QuantityFormatter.format3Decimals(b.availableQuantity),
-              b.uom,
-              b.receivedDate != null ? QuantityFormatter.formatDate(b.receivedDate!) : '-',
-            ]).toList(),
+            headers: headers,
+            data: toPrint.map((b) {
+              final d = AppDateFormatter.format(b.effectiveDate);
+              final t = AppDateFormatter.formatTime(b.effectiveDateTime);
+              final desc = b.description.isNotEmpty ? b.description : b.materialCode;
+              final dept = b.department.isNotEmpty ? b.department : 'Finished Goods';
+              final inQty = QuantityFormatter.formatDualUnit(b.receivedQuantity, b.uom);
+              final avail = QuantityFormatter.formatDualUnit(b.availableQuantity, b.uom);
+
+              return [
+                d,
+                t,
+                b.batchNo,
+                desc,
+                dept,
+                inQty,
+                avail,
+              ];
+            }).toList(),
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),
             headerDecoration: const pw.BoxDecoration(color: _tableHeaderBg),
             rowDecoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: _borderGrey, width: 0.5))),
-            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellStyle: const pw.TextStyle(fontSize: 8.5),
             cellAlignment: pw.Alignment.centerLeft,
-            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            cellAlignments: {
+              0: pw.Alignment.center,
+              1: pw.Alignment.center,
+              2: pw.Alignment.center,
+              3: pw.Alignment.centerLeft,
+              4: pw.Alignment.centerLeft,
+              5: pw.Alignment.centerRight,
+              6: pw.Alignment.centerRight,
+            },
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           ),
         ],
-        footer: (context) => _buildFooter(context, 'Benchmark MMS • Storage Register'),
+        footer: (context) => _buildCleanFooter(context, title),
       ),
     );
 
-    await _outputPdf(pdf, 'Storage_Report_${DateTime.now().millisecondsSinceEpoch}.pdf', share: share);
+    final prefix = isAllHistory ? 'Storage_History' : 'Storage_Register';
+    await _outputPdf(pdf, '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf', share: share);
   }
+
+  static Future<void> printStorageBatches(
+    List<BatchModel> rows, {
+    bool isAllHistory = false,
+    String? subtitle,
+    String? dateFilter,
+    bool share = false,
+  }) =>
+      printStorageReport(rows, isAllHistory: isAllHistory, subtitle: subtitle, dateFilter: dateFilter, share: share);
 
   /// =========================================================================
   /// 8. OUT OF STOCK REPORT
@@ -727,46 +775,118 @@ class PdfExportService {
   /// =========================================================================
   /// 12. DISPATCHES REGISTER REPORT (A4 Landscape)
   /// =========================================================================
-  static Future<void> printDispatchesReport(List<DispatchModel> rows, {bool share = false}) async {
+  static Future<void> printDispatchesReport(
+    List<DispatchModel> rows, {
+    String? subtitle,
+    bool share = false,
+  }) async {
     final pdf = pw.Document();
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(24),
-        header: (context) => _buildReportHeader('Finished Product Dispatches Register'),
+        header: (context) => _buildCleanReportHeader('Dispatch Register', subtitle: subtitle),
         build: (context) => [
           pw.TableHelper.fromTextArray(
-            headers: ['Date', 'Material Code', 'Product Name', 'Quantity', 'Units', 'Location', 'Department', 'Batches Used'],
+            headers: [
+              'Date',
+              'Time',
+              'Batch No',
+              'Description',
+              'Stock Out',
+              'Units',
+              'Location',
+              'Department',
+              'Return Qty',
+            ],
             data: rows.map((d) {
-              final batches = d.allocations.map((a) => '${a.batchNo} (${QuantityFormatter.format3Decimals(a.quantity)})').join(', ');
+              final batches = d.allocations.map((a) => '${a.batchNo} (${QuantityFormatter.formatClean(a.quantity)})').join(', ');
               return [
-                QuantityFormatter.formatDate(d.date),
-                d.materialCode,
-                d.product,
-                QuantityFormatter.format3Decimals(d.quantity),
-                d.units,
-                d.location,
-                d.department,
+                AppDateFormatter.format(d.date),
+                AppDateFormatter.formatTime(d.effectiveDateTime),
                 batches.isNotEmpty ? batches : '-',
+                d.displayName,
+                QuantityFormatter.formatClean(d.quantity),
+                d.units,
+                d.location.isNotEmpty ? d.location : '-',
+                d.department.isNotEmpty ? d.department : 'Dispatch',
+                d.returnQuantity > 0 ? QuantityFormatter.formatClean(d.returnQuantity) : '-',
               ];
             }).toList(),
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),
             headerDecoration: const pw.BoxDecoration(color: _tableHeaderBg),
             rowDecoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: _borderGrey, width: 0.5))),
-            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellStyle: const pw.TextStyle(fontSize: 8.5),
             cellAlignment: pw.Alignment.centerLeft,
-            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            cellAlignments: {
+              0: pw.Alignment.center,
+              1: pw.Alignment.center,
+              2: pw.Alignment.centerLeft,
+              3: pw.Alignment.centerLeft,
+              4: pw.Alignment.centerRight,
+              5: pw.Alignment.center,
+              6: pw.Alignment.centerLeft,
+              7: pw.Alignment.centerLeft,
+              8: pw.Alignment.centerRight,
+            },
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
           ),
         ],
-        footer: (context) => _buildFooter(context, 'Benchmark MMS • Dispatches Register'),
+        footer: (context) => _buildCleanFooter(context, 'Dispatch Register'),
       ),
     );
 
-    await _outputPdf(pdf, 'Dispatches_Report_${DateTime.now().millisecondsSinceEpoch}.pdf', share: share);
+    await _outputPdf(pdf, 'Dispatch_Register_${DateTime.now().millisecondsSinceEpoch}.pdf', share: share);
   }
 
-  static pw.Widget _buildReportHeader(String title) {
+  static pw.Widget _buildCleanReportHeader(String title, {String? subtitle}) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(bottom: pw.BorderSide(color: _brandPrimary, width: 1.5)),
+      ),
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(title, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+              if (subtitle != null && subtitle.isNotEmpty) ...[
+                pw.SizedBox(height: 2),
+                pw.Text(subtitle, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+              ],
+            ],
+          ),
+          pw.Text('Generated: ${AppDateFormatter.formatWithTime(DateTime.now())}',
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildCleanFooter(pw.Context context, String label) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 10),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: _borderGrey, width: 0.5)),
+      ),
+      padding: const pw.EdgeInsets.only(top: 6),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+          pw.Text('Page ${context.pageNumber} of ${context.pagesCount}',
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildReportHeader(String title, {String? subtitle}) {
     return pw.Container(
       margin: const pw.EdgeInsets.only(bottom: 14),
       decoration: const pw.BoxDecoration(
@@ -780,12 +900,14 @@ class PdfExportService {
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('BENCHMARK MMS — MAPLE PRO',
+              pw.Text('BENCHMARK MMS',
                   style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: _brandPrimary)),
-              pw.Text(title, style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+              pw.Text(title, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+              if (subtitle != null && subtitle.isNotEmpty)
+                pw.Text(subtitle, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
             ],
           ),
-          pw.Text('Generated: ${QuantityFormatter.formatDateTime(DateTime.now())}',
+          pw.Text('Generated: ${AppDateFormatter.formatWithTime(DateTime.now())}',
               style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
         ],
       ),

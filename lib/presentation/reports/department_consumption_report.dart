@@ -7,6 +7,7 @@ import '../../core/formatters/quantity_formatter.dart';
 import '../../core/services/pdf_export_service.dart';
 import '../../core/theme/glass_widgets.dart';
 import '../../shared/widgets/empty_state_widget.dart';
+import '../../shared/widgets/search_bar_widget.dart';
 import '../providers/app_providers.dart';
 
 class DepartmentConsumptionReport extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class _DepartmentConsumptionReportState extends ConsumerState<DepartmentConsumpt
   DateTime _fromDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _toDate = DateTime.now();
   String _selectedDept = 'All';
+  String _search = '';
 
   @override
   Widget build(BuildContext context) {
@@ -133,12 +135,30 @@ class _DepartmentConsumptionReportState extends ConsumerState<DepartmentConsumpt
               ),
             ),
 
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: SearchBarWidget(
+                hintText: 'Search material code or description...',
+                onChanged: (val) => setState(() => _search = val.toLowerCase()),
+              ),
+            ),
+
             Expanded(
               child: reportAsync.when(
                 loading: () => const LoadingSkeletonList(count: 5),
                 error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.danger))),
                 data: (rows) {
-                  if (rows.isEmpty) {
+                  final filtered = rows.where((r) {
+                    if (_search.isNotEmpty) {
+                      final matchCode = r.materialCode.toLowerCase().contains(_search);
+                      final matchDesc = r.description.toLowerCase().contains(_search);
+                      if (!matchCode && !matchDesc) return false;
+                    }
+                    return true;
+                  }).toList();
+
+                  if (filtered.isEmpty) {
                     return const EmptyStateWidget(
                       title: 'No department transfers found',
                       message: 'No consumption logged for the selected period and department.',
@@ -147,10 +167,10 @@ class _DepartmentConsumptionReportState extends ConsumerState<DepartmentConsumpt
 
                   return ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    itemCount: rows.length,
+                    itemCount: filtered.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
-                      final item = rows[i];
+                      final item = filtered[i];
                       return GlassCard(
                         padding: const EdgeInsets.all(12),
                         child: Column(

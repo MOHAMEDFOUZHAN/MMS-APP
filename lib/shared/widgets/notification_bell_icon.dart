@@ -33,34 +33,35 @@ class NotificationBellIcon extends ConsumerWidget {
         ),
         if (count > 0)
           Positioned(
-            top: 8,
-            right: 8,
+            top: 4,
+            right: 4,
             child: IgnorePointer(
               child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: AppColors.danger,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.danger.withValues(alpha: 0.8),
-                      blurRadius: 6,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                 constraints: const BoxConstraints(
                   minWidth: 16,
                   minHeight: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.danger,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF0A0F1D), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.danger.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: Text(
                   count > 99 ? '99+' : count.toString(),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     color: Colors.white,
-                    fontSize: 8,
+                    fontSize: 8.5,
                     fontWeight: FontWeight.w800,
+                    height: 1.05,
                   ),
                 ),
               ),

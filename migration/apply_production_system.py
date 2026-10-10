@@ -1,9 +1,10 @@
+﻿import os
 import psycopg2
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_REF = 'japxiaxyabhhhclphbqr'
-PASSWORD = 'mapleconnect2307'
+PASSWORD = os.environ["SUPABASE_DB_PASSWORD"]
 HOST = 'aws-0-ap-northeast-1.pooler.supabase.com'
 PORT = 5432
 USER = f'postgres.{PROJECT_REF}'
@@ -26,21 +27,21 @@ cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER B
 tables = [r[0] for r in cur.fetchall()]
 print(f"\nActive tables in public schema ({len(tables)}):")
 for t in tables:
-    print(f"  • {t}")
+    print(f"  â€¢ {t}")
 
 # Check generated notifications
 cur.execute("SELECT count(*), type, severity FROM notifications GROUP BY type, severity;")
 notifs = cur.fetchall()
 print(f"\nGenerated notifications summary:")
 for n in notifs:
-    print(f"  • {n[0]} notifications of type '{n[1]}' (Severity: {n[2]})")
+    print(f"  â€¢ {n[0]} notifications of type '{n[1]}' (Severity: {n[2]})")
 
 # Check user profile
 cur.execute("SELECT username, full_name, role, permissions FROM user_profiles;")
 profiles = cur.fetchall()
 print(f"\nUser profiles ({len(profiles)}):")
 for p in profiles:
-    print(f"  • Username: {p[0]}, Name: {p[1]}, Role: {p[2]}, Permissions Count: {len(p[3])}")
+    print(f"  â€¢ Username: {p[0]}, Name: {p[1]}, Role: {p[2]}, Permissions Count: {len(p[3])}")
 
 cur.close()
 conn.close()

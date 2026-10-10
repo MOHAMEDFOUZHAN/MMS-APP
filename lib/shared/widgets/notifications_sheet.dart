@@ -3,22 +3,46 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/formatters/quantity_formatter.dart';
-import '../../core/services/notification_service.dart';
 import '../../data/models/notification_model.dart';
 import '../../presentation/providers/app_providers.dart';
 
 class NotificationsSheet extends ConsumerStatefulWidget {
   final Function(String referenceType, String referenceId)? onNavigateToReference;
+  final bool isDialog;
 
   const NotificationsSheet({
     super.key,
     this.onNavigateToReference,
+    this.isDialog = false,
   });
 
   static Future<void> show(
     BuildContext context, {
     Function(String referenceType, String referenceId)? onNavigateToReference,
   }) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= 650) {
+      return showDialog(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.5),
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.fromLTRB(20, 65, 20, 20),
+          alignment: Alignment.topRight,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460, maxHeight: 620),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: NotificationsSheet(
+                onNavigateToReference: onNavigateToReference,
+                isDialog: true,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -40,13 +64,15 @@ class _NotificationsSheetState extends ConsumerState<NotificationsSheet> {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        maxHeight: widget.isDialog ? 620 : MediaQuery.of(context).size.height * 0.85,
       ),
-      decoration: const BoxDecoration(
-        color: Color(0xF50A0F1D),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border(top: BorderSide(color: AppColors.glassBorder, width: 1.5)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: const Color(0xF50A0F1D),
+        borderRadius: widget.isDialog
+            ? BorderRadius.circular(20)
+            : const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(color: AppColors.glassBorder, width: 1.5),
+        boxShadow: const [
           BoxShadow(
             color: Colors.black,
             blurRadius: 30,
@@ -59,80 +85,82 @@ class _NotificationsSheetState extends ConsumerState<NotificationsSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+          // Drag handle for sheet or Close button for dialog
+          if (!widget.isDialog)
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+          if (!widget.isDialog) const SizedBox(height: 16),
 
           // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.notifications_active_rounded, color: AppColors.primaryLight, size: 22),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Notifications & Alerts',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.notifications_active_rounded, color: AppColors.primaryLight, size: 20),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Notifications & Alerts',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_active_outlined, size: 20, color: AppColors.primaryLight),
-                    tooltip: 'Send Test Push Notification',
-                    onPressed: () async {
-                      await NotificationService.instance.showNotification(
-                        id: 9999,
-                        title: '🔔 Benchmark MMS Notification Test',
-                        body: 'Push notifications are active and operating normally! Stock, expiry, and invoice alerts will appear here.',
-                        payload: 'system:test',
-                      );
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Test notification sent to status bar!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.textSecondary),
+                    icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
                     tooltip: 'Recalculate Alerts',
+                    splashRadius: 18,
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     onPressed: () async {
                       await ref.read(notificationsRepositoryProvider).recalculateAlerts();
                       ref.invalidate(notificationsListProvider);
                       ref.invalidate(unreadNotificationsCountProvider);
                     },
                   ),
-                  TextButton.icon(
+                  IconButton(
+                    icon: const Icon(Icons.done_all_rounded, size: 18, color: AppColors.primaryLight),
+                    tooltip: 'Mark All Read',
+                    splashRadius: 18,
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     onPressed: () async {
                       await ref.read(notificationsRepositoryProvider).markAllAsRead();
                       ref.invalidate(notificationsListProvider);
                       ref.invalidate(unreadNotificationsCountProvider);
                     },
-                    icon: const Icon(Icons.done_all_rounded, size: 16, color: AppColors.primaryLight),
-                    label: Text(
-                      'Mark all read',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.primaryLight, fontWeight: FontWeight.w600),
-                    ),
                   ),
+                  if (widget.isDialog)
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textMuted),
+                      tooltip: 'Close Panel',
+                      splashRadius: 18,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                 ],
               ),
             ],

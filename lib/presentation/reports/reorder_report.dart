@@ -29,6 +29,13 @@ class _ReorderReportState extends ConsumerState<ReorderReport> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reorder Level Report'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: () => setState(() {}),
+          ),
+        ],
       ),
       body: AmbientBackground(
         child: Column(
@@ -100,7 +107,33 @@ class _ReorderReportState extends ConsumerState<ReorderReport> {
 
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.danger)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.danger),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Failed to load reorder report',
+                              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              snapshot.error.toString(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                            const SizedBox(height: 16),
+                            GlassButton(
+                              text: 'Retry',
+                              icon: Icons.refresh_rounded,
+                              color: AppColors.primary,
+                              onPressed: () => setState(() {}),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   }
 

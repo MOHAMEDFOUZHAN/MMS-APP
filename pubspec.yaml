@@ -2,7 +2,7 @@ name: mms_app
 description: "Benchmark Material Management System (Benchmark MMS) - Mobile & Tablet App"
 publish_to: 'none'
 
-version: 1.0.1+2
+version: 1.0.14+17
 
 environment:
   sdk: ^3.8.1
@@ -43,6 +43,8 @@ dependencies:
   url_launcher: ^6.3.0
   connectivity_plus: ^7.3.1
   flutter_local_notifications: ^20.1.0
+  package_info_plus: ^9.0.1
+  ota_update: ^7.1.0
 
 dev_dependencies:
   flutter_test:

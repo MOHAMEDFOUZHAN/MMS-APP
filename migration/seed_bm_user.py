@@ -1,8 +1,10 @@
+﻿import os
 import psycopg2
 import requests
 
 PROJECT_REF = 'japxiaxyabhhhclphbqr'
-PASSWORD = 'mapleconnect2307'
+PASSWORD = os.environ["SUPABASE_DB_PASSWORD"]
+SEED_USER_PASSWORD = os.environ["SEED_USER_PASSWORD"]
 HOST = 'aws-0-ap-northeast-1.pooler.supabase.com'
 PORT = 5432
 USER = f'postgres.{PROJECT_REF}'
@@ -39,7 +41,7 @@ if not row:
         'authenticated',
         'authenticated',
         'bm@benchmarkmms.com',
-        crypt('2307', gen_salt('bf')),
+        crypt(SEED_USER_PASSWORD, gen_salt('bf')),
         NOW(),
         '{"provider":"email","providers":["email"]}'::jsonb,
         '{"full_name":"Benchmark Manager","role":"ADMIN","username":"bm"}'::jsonb,
@@ -57,12 +59,12 @@ else:
     uid = row[0]
     cur.execute("""
     UPDATE auth.users 
-    SET encrypted_password = crypt('2307', gen_salt('bf')),
+    SET encrypted_password = crypt(SEED_USER_PASSWORD, gen_salt('bf')),
         email_confirmed_at = NOW(),
         raw_user_meta_data = '{"full_name":"Benchmark Manager","role":"ADMIN","username":"bm"}'::jsonb
     WHERE id = %s;
     """, (uid,))
-    print(f"Updated password to 2307 for bm@benchmarkmms.com ({uid})")
+    print(f"Updated password to SEED_USER_PASSWORD for bm@benchmarkmms.com ({uid})")
 
 # Ensure identity
 cur.execute("SELECT id FROM auth.identities WHERE user_id = %s;", (uid,))
@@ -104,7 +106,7 @@ headers = {
 }
 payload = {
     "email": "bm@benchmarkmms.com",
-    "password": "2307"
+    "password": SEED_USER_PASSWORD
 }
 resp = requests.post(login_url, json=payload, headers=headers)
 print("Auth Login Test Status:", resp.status_code)

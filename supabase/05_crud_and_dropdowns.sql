@@ -400,7 +400,8 @@ BEGIN
       AND available_quantity > 0.0001;
 
     IF v_total_available < v_req_qty THEN
-        RAISE EXCEPTION 'Insufficient stock! Requested: %, Available in batches: %', v_req_qty, v_total_available;
+        RAISE EXCEPTION 'Insufficient stock. Requested: % %, Available: % %, Shortage: % %',
+            v_req_qty, v_unit, v_total_available, v_unit, (v_req_qty - v_total_available), v_unit;
     END IF;
 
     -- 3. FIFO Re-allocation
@@ -411,7 +412,7 @@ BEGIN
         FROM batches
         WHERE (material_code = v_mat_code OR description ILIKE v_product_name)
           AND available_quantity > 0.0001
-        ORDER BY id ASC
+        ORDER BY received_date ASC NULLS LAST, created_at ASC NULLS LAST, id ASC
         FOR UPDATE
     LOOP
         EXIT WHEN v_remaining_to_dispatch <= 0;
@@ -538,10 +539,30 @@ DECLARE
     v_delta NUMERIC(15, 3);
     v_mat_code TEXT;
     v_current_stock NUMERIC(15, 3);
+    v_total_dispatched NUMERIC(15, 3);
+    v_consumed NUMERIC(15, 3);
 BEGIN
     SELECT * INTO v_batch FROM batches WHERE id = p_batch_id FOR UPDATE;
     IF v_batch IS NULL THEN
         RAISE EXCEPTION 'Batch with ID % not found', p_batch_id;
+    END IF;
+
+    -- Calculate consumed quantity from dispatch_batches and batch history
+    SELECT COALESCE(SUM(quantity), 0) INTO v_total_dispatched
+    FROM dispatch_batches
+    WHERE batch_id = p_batch_id;
+
+    v_consumed := GREATEST(v_total_dispatched, v_batch.received_quantity - v_batch.available_quantity);
+
+    -- Reject if new received quantity is less than already consumed/dispatched
+    IF p_new_received < v_consumed THEN
+        RAISE EXCEPTION 'Cannot reduce received quantity (%) below already dispatched quantity (% %)', 
+            p_new_received, v_consumed, v_batch.uom;
+    END IF;
+
+    -- Reject negative available stock
+    IF p_new_available < 0 THEN
+        RAISE EXCEPTION 'Available stock cannot be negative.';
     END IF;
 
     v_mat_code := v_batch.material_code;
@@ -549,14 +570,16 @@ BEGIN
 
     IF v_mat_code IS NOT NULL AND v_delta != 0 THEN
         SELECT quantity INTO v_current_stock FROM materials WHERE material_code = v_mat_code FOR UPDATE;
-        IF v_current_stock + v_delta < 0 THEN
+        IF v_current_stock IS NOT NULL AND (v_current_stock + v_delta < 0) THEN
             RAISE EXCEPTION 'Stock adjustment would cause negative inventory (% + % = %)', v_current_stock, v_delta, v_current_stock + v_delta;
         END IF;
 
-        UPDATE materials
-        SET quantity = quantity + v_delta,
-            last_updated = CURRENT_TIMESTAMP
-        WHERE material_code = v_mat_code;
+        IF v_current_stock IS NOT NULL THEN
+            UPDATE materials
+            SET quantity = quantity + v_delta,
+                last_updated = CURRENT_TIMESTAMP
+            WHERE material_code = v_mat_code;
+        END IF;
     END IF;
 
     UPDATE batches

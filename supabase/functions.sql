@@ -254,7 +254,8 @@ $$;
 -- 3. FIFO DISPATCH ALLOCATION (Multi-Batch FIFO Consumer)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION create_dispatch_fifo(
-    p_dispatch JSONB
+    p_dispatch JSONB,
+    p_idempotency_key TEXT DEFAULT NULL::TEXT
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -295,7 +296,8 @@ BEGIN
       AND available_quantity > 0.0001;
 
     IF v_total_available < v_req_qty THEN
-        RAISE EXCEPTION 'Insufficient stock! Requested: %, Available in batches: %', v_req_qty, v_total_available;
+        RAISE EXCEPTION 'Insufficient stock. Requested: % %, Available: % %, Shortage: % %',
+            v_req_qty, v_unit, v_total_available, v_unit, (v_req_qty - v_total_available), v_unit;
     END IF;
 
     -- Insert Dispatches header record
@@ -305,7 +307,7 @@ BEGIN
         v_date, v_mat_code, v_product_name, v_req_qty, v_unit, v_location, v_dept
     ) RETURNING id INTO v_dispatch_id;
 
-    -- FIFO Deduction: Sort oldest batch first (by id ASC or received_date ASC)
+    -- FIFO Deduction: Sort oldest batch first (by received_date ASC, created_at ASC, id ASC)
     v_remaining_to_dispatch := v_req_qty;
 
     FOR v_batch IN
@@ -313,7 +315,7 @@ BEGIN
         FROM batches
         WHERE (material_code = v_mat_code OR description ILIKE v_product_name)
           AND available_quantity > 0.0001
-        ORDER BY id ASC
+        ORDER BY received_date ASC NULLS LAST, created_at ASC NULLS LAST, id ASC
         FOR UPDATE
     LOOP
         EXIT WHEN v_remaining_to_dispatch <= 0;

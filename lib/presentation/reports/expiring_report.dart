@@ -5,10 +5,13 @@ import '../../core/constants/app_colors.dart';
 import '../../core/formatters/quantity_formatter.dart';
 import '../../core/services/pdf_export_service.dart';
 import '../../core/theme/glass_widgets.dart';
+import '../../core/utils/expiry_helper.dart';
+import '../../data/models/inventory_settings_model.dart';
 import '../../data/models/material_model.dart';
 import '../../shared/widgets/empty_state_widget.dart';
 import '../../shared/widgets/search_bar_widget.dart';
 import '../providers/app_providers.dart';
+import '../providers/inventory_settings_provider.dart';
 
 class ExpiringReport extends ConsumerStatefulWidget {
   const ExpiringReport({super.key});
@@ -25,10 +28,19 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final materialsRepo = ref.watch(materialsRepositoryProvider);
+    final settings = ref.watch(inventorySettingsProvider).value ?? const InventorySettingsModel();
+    final alertDays = settings.invoiceMaterialExpiryAlertDays;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expiring Items Report'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: () => setState(() {}),
+          ),
+        ],
       ),
       body: AmbientBackground(
         child: Column(
@@ -91,6 +103,7 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
                   status: 'expiring',
                   category: _selectedCategory != 'All' ? _selectedCategory : null,
                   search: _search.isNotEmpty ? _search : null,
+                  invoiceMaterialExpiryAlertDays: alertDays,
                   limit: 200,
                 ),
                 builder: (context, snapshot) {
@@ -100,16 +113,42 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
 
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.danger)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.danger),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Failed to load expiring report',
+                              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              snapshot.error.toString(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                            const SizedBox(height: 16),
+                            GlassButton(
+                              text: 'Retry',
+                              icon: Icons.refresh_rounded,
+                              color: AppColors.primary,
+                              onPressed: () => setState(() {}),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   }
 
                   final list = snapshot.data ?? [];
 
                   if (list.isEmpty) {
-                    return const EmptyStateWidget(
+                    return EmptyStateWidget(
                       title: 'No Expiring Items',
-                      message: 'No materials are approaching their shelf-life expiry within 30 days.',
+                      message: 'No materials are approaching their shelf-life expiry within $alertDays days.',
                     );
                   }
 
@@ -121,7 +160,7 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '${list.length} Lots Expiring Soon / Expired',
+                              '${list.length} Lots Expiring Soon / Expired (Threshold: ${alertDays}d)',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFF97316)),
                             ),
                             TextButton.icon(
@@ -136,9 +175,9 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
                         child: LayoutBuilder(
                           builder: (context, constraints) {
                             if (constraints.maxWidth >= 768) {
-                              return _buildTabletTable(list);
+                              return _buildTabletTable(list, alertDays);
                             }
-                            return _buildMobileCards(list);
+                            return _buildMobileCards(list, alertDays);
                           },
                         ),
                       ),
@@ -153,21 +192,21 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
     );
   }
 
-  Widget _buildMobileCards(List<MaterialModel> list) {
+  Widget _buildMobileCards(List<MaterialModel> list, int alertDays) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       itemCount: list.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
         final item = list[i];
-        final daysLeft = item.expiryDate?.difference(DateTime.now()).inDays;
-        final isExpired = daysLeft != null && daysLeft < 0;
-        final isUrgent = daysLeft != null && daysLeft <= 7;
-        final badgeColor = isExpired ? AppColors.danger : (isUrgent ? const Color(0xFFF97316) : AppColors.warning);
+        final expiryStatus = ExpiryHelper.calculate(
+          expiryDate: item.expiryDate,
+          alertDaysThreshold: alertDays,
+        );
 
         return GlassCard(
           padding: const EdgeInsets.all(14),
-          accentColor: badgeColor,
+          accentColor: expiryStatus.accentColor,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -180,22 +219,7 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
                       style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      daysLeft == null
-                          ? 'No Expiry'
-                          : isExpired
-                              ? 'EXPIRED (${-daysLeft}d ago)'
-                              : '$daysLeft days left',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor),
-                    ),
-                  ),
+                  ExpiryHelper.buildBadge(expiryStatus),
                 ],
               ),
               const SizedBox(height: 4),
@@ -223,7 +247,7 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
                       const Text('Expiry Date', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
                       Text(
                         item.expiryDate != null ? QuantityFormatter.formatDate(item.expiryDate!) : '-',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeColor),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: expiryStatus.accentColor),
                       ),
                     ],
                   ),
@@ -246,7 +270,7 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
     );
   }
 
-  Widget _buildTabletTable(List<MaterialModel> list) {
+  Widget _buildTabletTable(List<MaterialModel> list, int alertDays) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       child: GlassCard(
@@ -277,10 +301,10 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
               ],
             ),
             ...list.map((m) {
-              final daysLeft = m.expiryDate?.difference(DateTime.now()).inDays;
-              final isExpired = daysLeft != null && daysLeft < 0;
-              final isUrgent = daysLeft != null && daysLeft <= 7;
-              final badgeColor = isExpired ? AppColors.danger : (isUrgent ? const Color(0xFFF97316) : AppColors.warning);
+              final expiryStatus = ExpiryHelper.calculate(
+                expiryDate: m.expiryDate,
+                alertDaysThreshold: alertDays,
+              );
 
               return TableRow(
                 decoration: const BoxDecoration(
@@ -294,15 +318,8 @@ class _ExpiringReportState extends ConsumerState<ExpiringReport> {
                   _tableCell(m.unit),
                   _tableCell(m.expiryDate != null ? QuantityFormatter.formatDate(m.expiryDate!) : '-'),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      daysLeft == null
-                          ? '-'
-                          : isExpired
-                              ? 'EXPIRED (${-daysLeft}d ago)'
-                              : '$daysLeft days left',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: badgeColor, fontSize: 11),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: ExpiryHelper.buildBadge(expiryStatus),
                   ),
                 ],
               );

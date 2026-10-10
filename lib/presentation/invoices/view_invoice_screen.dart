@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/formatters/app_date_formatter.dart';
 import '../../core/formatters/quantity_formatter.dart';
 import '../../core/theme/glass_widgets.dart';
 import '../../core/services/pdf_export_service.dart';
@@ -155,10 +156,10 @@ class _ViewInvoiceScreenState extends ConsumerState<ViewInvoiceScreen> {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 13, color: AppColors.textMuted),
+                            const Icon(Icons.access_time, size: 13, color: AppColors.textMuted),
                             const SizedBox(width: 4),
                             Text(
-                              'Date: ${QuantityFormatter.formatDate(inv.date)}',
+                              'Recorded: ${AppDateFormatter.formatWithTime(inv.createdAt ?? inv.date)}',
                               style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                             ),
                             if (inv.purchaseId.isNotEmpty) ...[
@@ -190,6 +191,7 @@ class _ViewInvoiceScreenState extends ConsumerState<ViewInvoiceScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final item = inv.items[i];
+                      final lot = item.lotNo.isNotEmpty ? item.lotNo : item.batchNo;
                       return GlassCard(
                         padding: const EdgeInsets.all(12),
                         child: Column(
@@ -222,13 +224,13 @@ class _ViewInvoiceScreenState extends ConsumerState<ViewInvoiceScreen> {
                                 ),
                               ],
                             ),
-                            if (item.batchNo.isNotEmpty || item.grade.isNotEmpty) ...[
+                            if (lot.isNotEmpty || item.grade.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  if (item.batchNo.isNotEmpty)
-                                    Text('Batch: ${item.batchNo}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  if (lot.isNotEmpty)
+                                    Text('Lot: $lot', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                   if (item.grade.isNotEmpty)
                                     Text('Grade: ${item.grade}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                 ],
@@ -248,6 +250,18 @@ class _ViewInvoiceScreenState extends ConsumerState<ViewInvoiceScreen> {
                         _buildRow('Subtotal (Excl. Tax)', QuantityFormatter.formatCurrency(inv.totalExclTax)),
                         const SizedBox(height: 6),
                         _buildRow('Total GST', QuantityFormatter.formatCurrency(inv.totalGst)),
+                        if (inv.totalGst > 0) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(left: 14, top: 2, bottom: 4),
+                            child: Column(
+                              children: [
+                                _buildSubRow('CGST', QuantityFormatter.formatCurrency(inv.totalGst / 2.0)),
+                                const SizedBox(height: 2),
+                                _buildSubRow('SGST', QuantityFormatter.formatCurrency(inv.totalGst / 2.0)),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         _buildRow('Total IGST', QuantityFormatter.formatCurrency(inv.totalIgst)),
                         const Divider(height: 16),
@@ -260,7 +274,7 @@ class _ViewInvoiceScreenState extends ConsumerState<ViewInvoiceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Final Total', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            Text('Final Bill Total', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                             Text(
                               QuantityFormatter.formatCurrency(inv.finalTotal > 0 ? inv.finalTotal : inv.grandTotal),
                               style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
@@ -298,6 +312,22 @@ class _ViewInvoiceScreenState extends ConsumerState<ViewInvoiceScreen> {
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
             color: isBold ? AppColors.textPrimary : AppColors.textSecondary,
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '• $label',
+          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
         ),
       ],
     );

@@ -4,6 +4,8 @@ import 'core/config/supabase_config.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/auth/login_screen.dart';
+import 'presentation/owner/owner_login_screen.dart';
+import 'presentation/owner/owner_shell_screen.dart';
 import 'presentation/providers/app_providers.dart';
 import 'presentation/shell/home_shell.dart';
 
@@ -32,16 +34,23 @@ Future<void> main() async {
 }
 
 class BenchmarkMmsApp extends StatelessWidget {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   const BenchmarkMmsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     debugPrint('>>> RENDERING BENCHMARK MMS APP');
     return MaterialApp(
-      title: 'demo',
+      navigatorKey: navigatorKey,
+      title: 'Benchmark MMS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const AuthGate(),
+      routes: {
+        '/owner': (context) => const OwnerShellScreen(),
+        '/owner-login': (context) => const OwnerLoginScreen(),
+      },
     );
   }
 }

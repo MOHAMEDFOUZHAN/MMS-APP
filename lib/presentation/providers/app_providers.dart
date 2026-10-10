@@ -5,6 +5,7 @@ import '../../data/models/category_location_model.dart';
 import '../../data/models/dashboard_summary_model.dart';
 import '../../data/models/dispatch_model.dart';
 import '../../data/models/invoice_model.dart';
+import '../../data/models/material_lot_model.dart';
 import '../../data/models/material_model.dart';
 import '../../data/models/report_models.dart';
 import '../../data/models/stock_adjustment_model.dart';
@@ -22,9 +23,12 @@ import '../../data/repositories/materials_repository.dart';
 import '../../data/repositories/notifications_repository.dart';
 import '../../data/repositories/reports_repository.dart';
 import '../../data/repositories/stock_adjustments_repository.dart';
+import '../../data/models/storage_product_model.dart';
+import '../../data/repositories/storage_products_repository.dart';
 import '../../data/repositories/transfers_repository.dart';
 import '../../data/repositories/user_profile_repository.dart';
 import '../../data/repositories/vendors_repository.dart';
+import 'inventory_settings_provider.dart';
 import '../../data/repositories/warehouse_repository.dart';
 
 // ── Repository Providers ───────────────────────────────────────────────────
@@ -33,6 +37,7 @@ final materialsRepositoryProvider = Provider<MaterialsRepository>((ref) => Mater
 final invoicesRepositoryProvider = Provider<InvoicesRepository>((ref) => InvoicesRepository(ref));
 final batchesRepositoryProvider = Provider<BatchesRepository>((ref) => BatchesRepository());
 final dispatchesRepositoryProvider = Provider<DispatchesRepository>((ref) => DispatchesRepository(ref));
+final storageProductsRepositoryProvider = Provider<StorageProductsRepository>((ref) => StorageProductsRepository());
 final transfersRepositoryProvider = Provider<TransfersRepository>((ref) => TransfersRepository(ref));
 final stockAdjustmentsRepositoryProvider = Provider<StockAdjustmentsRepository>((ref) => StockAdjustmentsRepository(ref));
 final vendorsRepositoryProvider = Provider<VendorsRepository>((ref) => VendorsRepository());
@@ -155,30 +160,45 @@ final hasPermissionProvider = Provider.autoDispose.family<bool, String>((ref, pe
 // ── Dashboard Provider ─────────────────────────────────────────────────────
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummaryModel>((ref) async {
   final repo = ref.watch(dashboardRepositoryProvider);
-  return repo.fetchDashboardSummary();
+  final settings = ref.watch(inventorySettingsProvider).valueOrNull;
+  final invDays = settings?.invoiceMaterialExpiryAlertDays ?? 30;
+  return repo.fetchDashboardSummary(invoiceMaterialExpiryAlertDays: invDays);
 });
 
 // ── Materials Filter & List Provider ───────────────────────────────────────
 class MaterialsFilter {
   final String search;
   final String category;
+  final String grade;
   final String status; // 'all', 'reorder', 'expiring', 'out_of_stock'
+  final DateTime? fromDate;
+  final DateTime? toDate;
 
   MaterialsFilter({
     this.search = '',
     this.category = 'All',
+    this.grade = 'All',
     this.status = 'all',
+    this.fromDate,
+    this.toDate,
   });
 
   MaterialsFilter copyWith({
     String? search,
     String? category,
+    String? grade,
     String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+    bool clearDates = false,
   }) {
     return MaterialsFilter(
       search: search ?? this.search,
       category: category ?? this.category,
+      grade: grade ?? this.grade,
       status: status ?? this.status,
+      fromDate: clearDates ? null : (fromDate ?? this.fromDate),
+      toDate: clearDates ? null : (toDate ?? this.toDate),
     );
   }
 }
@@ -188,11 +208,17 @@ final materialsFilterProvider = StateProvider<MaterialsFilter>((ref) => Material
 final materialsListProvider = FutureProvider.autoDispose<List<MaterialModel>>((ref) async {
   final filter = ref.watch(materialsFilterProvider);
   final repo = ref.watch(materialsRepositoryProvider);
+  final settings = ref.watch(inventorySettingsProvider).valueOrNull;
+  final invDays = settings?.invoiceMaterialExpiryAlertDays ?? 30;
 
-  return repo.fetchMaterials(
+  return repo.fetchLiveMaterialsSummary(
     search: filter.search,
     category: filter.category,
+    grade: filter.grade,
     status: filter.status,
+    fromDate: filter.fromDate,
+    toDate: filter.toDate,
+    expiryDays: invDays,
   );
 });
 
@@ -201,10 +227,16 @@ final categoriesProvider = FutureProvider.autoDispose<List<String>>((ref) async 
   return repo.fetchCategories();
 });
 
-final materialLotsProvider = FutureProvider.autoDispose.family<List<MaterialModel>, String>((ref, code) async {
+final gradesProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  final repo = ref.watch(materialsRepositoryProvider);
+  return repo.fetchGrades();
+});
+
+final materialLotsProvider = FutureProvider.autoDispose.family<List<MaterialLotModel>, String>((ref, code) async {
   final repo = ref.watch(materialsRepositoryProvider);
   return repo.fetchMaterialLots(code);
 });
+
 
 class InvoicesFilter {
   final String? search;
@@ -227,23 +259,44 @@ class InvoicesFilter {
 }
 
 class BatchesFilter {
+  final BatchViewMode viewMode;
   final String? search;
   final DateTime? fromDate;
   final DateTime? toDate;
 
-  const BatchesFilter({this.search, this.fromDate, this.toDate});
+  const BatchesFilter({
+    this.viewMode = BatchViewMode.inStock,
+    this.search,
+    this.fromDate,
+    this.toDate,
+  });
+
+  BatchesFilter copyWith({
+    BatchViewMode? viewMode,
+    String? search,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) {
+    return BatchesFilter(
+      viewMode: viewMode ?? this.viewMode,
+      search: search ?? this.search,
+      fromDate: fromDate ?? this.fromDate,
+      toDate: toDate ?? this.toDate,
+    );
+  }
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is BatchesFilter &&
           runtimeType == other.runtimeType &&
+          viewMode == other.viewMode &&
           search == other.search &&
           fromDate == other.fromDate &&
           toDate == other.toDate;
 
   @override
-  int get hashCode => Object.hash(search, fromDate, toDate);
+  int get hashCode => Object.hash(viewMode, search, fromDate, toDate);
 }
 
 class DispatchesFilter {
@@ -303,46 +356,90 @@ final invoiceDetailsProvider = FutureProvider.autoDispose.family<InvoiceModel, i
 });
 
 // ── Batches Provider ───────────────────────────────────────────────────────
+final batchesListProvider = FutureProvider.autoDispose.family<List<BatchModel>, BatchesFilter>((ref, filter) async {
+  final repo = ref.watch(batchesRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  return repo.fetchBatches(
+    viewMode: filter.viewMode,
+    search: filter.search,
+    fromDate: filter.fromDate,
+    toDate: filter.toDate,
+    category: isTeaUser ? 'TEA' : null,
+  );
+});
+
 final activeBatchesProvider = FutureProvider.autoDispose.family<List<BatchModel>, dynamic>((ref, param) async {
   final repo = ref.watch(batchesRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final cat = isTeaUser ? 'TEA' : null;
   if (param is BatchesFilter) {
-    return repo.fetchActiveBatches(search: param.search, fromDate: param.fromDate, toDate: param.toDate);
+    return repo.fetchActiveBatches(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
   } else if (param is String) {
-    return repo.fetchActiveBatches(search: param.isNotEmpty ? param : null);
+    return repo.fetchActiveBatches(search: param.isNotEmpty ? param : null, category: cat);
   }
-  return repo.fetchActiveBatches();
+  return repo.fetchActiveBatches(category: cat);
 });
 
 final inwardHistoryProvider = FutureProvider.autoDispose.family<List<BatchModel>, dynamic>((ref, param) async {
   final repo = ref.watch(batchesRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final cat = isTeaUser ? 'TEA' : null;
   if (param is BatchesFilter) {
-    return repo.fetchInwardHistory(search: param.search, fromDate: param.fromDate, toDate: param.toDate);
+    return repo.fetchInwardHistory(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
   } else if (param is String) {
-    return repo.fetchInwardHistory(search: param.isNotEmpty ? param : null);
+    return repo.fetchInwardHistory(search: param.isNotEmpty ? param : null, category: cat);
   }
-  return repo.fetchInwardHistory();
+  return repo.fetchInwardHistory(category: cat);
 });
 
 // ── Dispatches Provider ────────────────────────────────────────────────────
 final dispatchesListProvider = FutureProvider.autoDispose.family<List<DispatchModel>, dynamic>((ref, param) async {
   final repo = ref.watch(dispatchesRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final cat = isTeaUser ? 'TEA' : null;
   if (param is DispatchesFilter) {
-    return repo.fetchDispatches(search: param.search, fromDate: param.fromDate, toDate: param.toDate);
+    return repo.fetchDispatches(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
   } else if (param is String) {
-    return repo.fetchDispatches(search: param.isNotEmpty ? param : null);
+    return repo.fetchDispatches(search: param.isNotEmpty ? param : null, category: cat);
   }
-  return repo.fetchDispatches();
+  return repo.fetchDispatches(category: cat);
+});
+
+// ── Storage Products Provider ──────────────────────────────────────────────
+final storageProductsListProvider = FutureProvider.autoDispose.family<List<StorageProductModel>, String?>((ref, query) async {
+  final repo = ref.watch(storageProductsRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  return repo.searchStorageProducts(query, category: isTeaUser ? 'TEA' : null);
+});
+
+final dispatchAvailableProductsProvider = FutureProvider.autoDispose.family<List<DispatchAvailableProductModel>, String?>((ref, query) async {
+  final repo = ref.watch(storageProductsRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  return repo.getDispatchAvailableProducts(search: query, category: isTeaUser ? 'TEA' : null);
 });
 
 // ── Transfers Provider ─────────────────────────────────────────────────────
 final transfersListProvider = FutureProvider.autoDispose.family<List<TransferModel>, dynamic>((ref, param) async {
   final repo = ref.watch(transfersRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final cat = isTeaUser ? 'TEA' : null;
   if (param is TransfersFilter) {
-    return repo.fetchTransfers(search: param.search, fromDate: param.fromDate, toDate: param.toDate);
+    return repo.fetchTransfers(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
   } else if (param is String) {
-    return repo.fetchTransfers(search: param.isNotEmpty ? param : null);
+    return repo.fetchTransfers(search: param.isNotEmpty ? param : null, category: cat);
   }
-  return repo.fetchTransfers();
+  return repo.fetchTransfers(category: cat);
+});
+
+final transferMaterialsProvider = FutureProvider.autoDispose<List<MaterialModel>>((ref) async {
+  final repo = ref.watch(transfersRepositoryProvider);
+  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  return repo.fetchTransferMaterials(category: isTeaUser ? 'TEA' : null);
+});
+
+final transferMaterialLotsProvider = FutureProvider.autoDispose.family<List<MaterialLotModel>, String>((ref, code) async {
+  final repo = ref.watch(transfersRepositoryProvider);
+  return repo.fetchLotsForMaterial(code);
 });
 
 // ── Stock Adjustments Provider ─────────────────────────────────────────────

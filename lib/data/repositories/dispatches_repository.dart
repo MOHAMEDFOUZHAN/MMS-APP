@@ -21,11 +21,16 @@ class DispatchesRepository {
     String? search,
     DateTime? fromDate,
     DateTime? toDate,
+    String? category,
     int limit = 50,
     int offset = 0,
   }) async {
     try {
       var query = _client.from('dispatches').select('*, dispatch_batches(*)');
+
+      if (category != null && category.trim().isNotEmpty) {
+        query = query.eq('category', category.trim().toUpperCase());
+      }
 
       if (fromDate != null) {
         query = query.gte('date', fromDate.toIso8601String().split('T')[0]);
@@ -36,7 +41,7 @@ class DispatchesRepository {
 
       if (search != null && search.trim().isNotEmpty) {
         final term = TextStandardizer.collapseSpaces(search);
-        query = query.or('product.ilike.%$term%,material_code.ilike.%$term%,location.ilike.%$term%,department.ilike.%$term%');
+        query = query.or('product.ilike.%$term%,material_code.ilike.%$term%,category.ilike.%$term%,location.ilike.%$term%,department.ilike.%$term%,remarks.ilike.%$term%');
       }
 
       final response = await query
@@ -52,13 +57,38 @@ class DispatchesRepository {
     }
   }
 
+  /// Authoritative server-side stock and FIFO allocation preview including return quantity calculation
+  Future<Map<String, dynamic>> getStorageDispatchPreview({
+    required String materialCode,
+    double requestedQuantity = 0.0,
+    double returnQuantity = 0.0,
+  }) async {
+    try {
+      final res = await _client.rpc('get_storage_dispatch_preview', params: {
+        'p_material_code': TextStandardizer.normalizeCode(materialCode),
+        'p_requested_quantity': requestedQuantity,
+        'p_return_quantity': returnQuantity,
+      });
+
+      return Map<String, dynamic>.from(res as Map);
+    } catch (e) {
+      debugPrint('getStorageDispatchPreview error: $e');
+      throw AppException.from(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createDispatchFifo({
+    int? storageProductId,
     required String materialCode,
     required String product,
+    String? category,
+    String? grade,
     required double quantity,
+    double returnQuantity = 0.0,
     required String units,
     required String location,
     required String department,
+    String? remarks,
     required DateTime date,
     String? idempotencyKey,
   }) async {
@@ -67,12 +97,20 @@ class DispatchesRepository {
         'IDEMP-$deviceId-DSP-${DateTime.now().millisecondsSinceEpoch}-${DeviceIdService.generateUuid().substring(0, 6)}';
 
     final payload = {
+      if (storageProductId != null && storageProductId > 0) 'storage_product_id': storageProductId,
       'material_code': TextStandardizer.normalizeCode(materialCode),
       'product': TextStandardizer.normalizeBusinessText(product),
+      if (category != null && category.trim().isNotEmpty)
+        'category': TextStandardizer.normalizeBusinessText(category),
+      if (grade != null && grade.trim().isNotEmpty)
+        'grade': FactoryConstants.normalizeGradeCode(grade),
       'quantity': quantity,
-      'units': TextStandardizer.normalizeBusinessText(units),
+      'return_quantity': returnQuantity,
+      'units': FactoryConstants.normalizeUomCode(units),
       'location': TextStandardizer.normalizeBusinessText(location),
       'department': TextStandardizer.normalizeBusinessText(department),
+      if (remarks != null && remarks.trim().isNotEmpty)
+        'remarks': TextStandardizer.normalizeBusinessText(remarks),
       'date': date.toIso8601String().split('T')[0],
       'idempotency_key': idKey,
       'device_id': deviceId,
@@ -130,22 +168,35 @@ class DispatchesRepository {
 
   Future<Map<String, dynamic>> updateDispatch({
     required int dispatchId,
+    int? storageProductId,
     required String materialCode,
     required String product,
+    String? category,
+    String? grade,
     required double quantity,
+    double returnQuantity = 0.0,
     required String units,
     required String location,
     required String department,
+    String? remarks,
     required DateTime date,
   }) async {
     try {
       final payload = {
+        if (storageProductId != null && storageProductId > 0) 'storage_product_id': storageProductId,
         'material_code': TextStandardizer.normalizeCode(materialCode),
         'product': TextStandardizer.normalizeBusinessText(product),
+        if (category != null && category.trim().isNotEmpty)
+          'category': TextStandardizer.normalizeBusinessText(category),
+        if (grade != null && grade.trim().isNotEmpty)
+          'grade': FactoryConstants.normalizeGradeCode(grade),
         'quantity': quantity,
+        'return_quantity': returnQuantity,
         'units': FactoryConstants.normalizeUomCode(units),
         'location': TextStandardizer.normalizeBusinessText(location),
         'department': TextStandardizer.normalizeBusinessText(department),
+        if (remarks != null && remarks.trim().isNotEmpty)
+          'remarks': TextStandardizer.normalizeBusinessText(remarks),
         'date': date.toIso8601String().split('T')[0],
       };
 

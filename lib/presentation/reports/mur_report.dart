@@ -326,10 +326,10 @@ class _MurReportState extends ConsumerState<MurReport> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _metricBox('Opening', r.opening, r.unit),
-                  _metricBox('Purchased', r.purchased, r.unit, color: AppColors.accent),
-                  _metricBox('Used', r.used, r.unit, color: AppColors.secondary),
-                  _metricBox('Closing', r.closing, r.unit, color: AppColors.primaryLight),
+                  Expanded(child: _metricBox('Opening', r.opening, r.unit)),
+                  Expanded(child: _metricBox('Purchased', r.purchased, r.unit, color: AppColors.accent)),
+                  Expanded(child: _metricBox('Used', r.used, r.unit, color: AppColors.secondary)),
+                  Expanded(child: _metricBox('Closing', r.closing, r.unit, color: AppColors.primaryLight)),
                 ],
               ),
             ],
@@ -345,12 +345,15 @@ class _MurReportState extends ConsumerState<MurReport> {
       children: [
         Text(label, style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
         const SizedBox(height: 2),
-        Text(
-          QuantityFormatter.format3Decimals(val),
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: color ?? AppColors.textPrimary,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            QuantityFormatter.format3Decimals(val),
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: color ?? AppColors.textPrimary,
+            ),
           ),
         ),
         Text(unit, style: const TextStyle(fontSize: 8, color: AppColors.textMuted)),

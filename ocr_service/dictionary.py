@@ -8,7 +8,8 @@ DICTIONARY_WORDS = [
     'CHAMOMILE', 'FLOWER', 'FLOWERS', 'LEAF', 'LEAVES', 'TEA', 'GREEN',
     'BLACK', 'WHITE', 'HERBAL', 'CARDAMOM', 'CLOVE', 'CINNAMON', 'GINGER',
     'PEPPER', 'POWDER', 'EXTRACT', 'OIL', 'ORGANIC', 'WHOLE', 'CRUSHED',
-    'FLAVOUR', 'FLAVOR', 'NATURAL', 'TUMBLER', 'SPOON', 'BAG', 'BOX', 'COVER'
+    'FLAVOUR', 'FLAVOR', 'NATURAL', 'TUMBLER', 'SPOON', 'BAG', 'BOX', 'COVER',
+    'PISTACHIO', 'INSHELL', 'ALMOND', 'JADHIPATHRI', 'CASSIA', 'CARAWAY', 'SUBJA'
 ]
 
 # Patterns that indicate header/footer/legal boilerplate lines to reject from material descriptions
@@ -20,7 +21,8 @@ REJECT_PATTERNS = [
     r"verified\s*by", r"prepared\s*by", r"customer", r"subject\s*to",
     r"tax\s*invoice", r"e-invoice", r"ack\s*no", r"ack\s*date", r"irn",
     r"description\s*of\s*goods", r"hsn\s*/?\s*sac", r"amount\s*chargeable",
-    r"checked\s*by", r"priyanka", r"authoris[a-z]*", r"^total\b", r"subtotal"
+    r"checked\s*by", r"priyanka", r"authoris[a-z]*", r"^total\b", r"subtotal",
+    r"^sl\b", r"^no\.\b", r"^particulars\b"
 ]
 
 def split_glued_words(text: str) -> str:
@@ -42,8 +44,11 @@ def clean_material_name(raw_name: str) -> str:
         return ""
     name = str(raw_name).strip()
 
-    # 1. Strip leading serial numbers or stray OCR prefix artifacts ("1 ", "2", "10", "N", "J", etc.)
+    # 1. Strip leading serial numbers, circled numbers, and header artifacts
+    name = re.sub(r"^[\u2460-\u2473\u3251-\u325f①②③④⑤⑥⑦⑧⑨⑩\s\.\)\-\/]*", "", name)
+    name = re.sub(r"^(?:Sl\.?\s*No\.?|S\.?\s*No\.?|Sr\.?\s*No\.?|No\.?|si|o\.)[\s\:\.\-]*", "", name, flags=re.IGNORECASE)
     name = re.sub(r"^(?:[0-9]{1,2}|[NJAB])[\.\s\)\-]*(?=[A-Za-z])", "", name)
+    name = re.sub(r"\s*[\?]?\d+(?:\.\d+)?\+?@\d+(?:\.\d+)?.*$", "", name)
 
     # 2. Normalize full-width brackets and glue
     name = name.replace("（", "(").replace("）", ")")

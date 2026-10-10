@@ -1,3 +1,4 @@
+﻿import os
 import sys
 import psycopg2
 import re
@@ -7,7 +8,7 @@ from difflib import SequenceMatcher
 sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_REF = 'japxiaxyabhhhclphbqr'
-PASSWORD = 'mapleconnect2307'
+PASSWORD = os.environ["SUPABASE_DB_PASSWORD"]
 HOST = 'aws-0-ap-northeast-1.pooler.supabase.com'
 PORT = 5432
 USER = f'postgres.{PROJECT_REF}'
@@ -111,10 +112,10 @@ for i in range(len(unique_norm_descs)):
 
 # Summary
 print(f"CASE DUPLICATES / VARIANTS:")
-print(f"  • Categories needing uppercase: {len(cat_case_diffs)}")
-print(f"  • Units needing uppercase: {len(unit_diffs)}")
-print(f"  • Grades needing uppercase: {len(grade_diffs)}")
-print(f"  • Descriptions needing uppercase/trim: {len(desc_diffs)}")
+print(f"  â€¢ Categories needing uppercase: {len(cat_case_diffs)}")
+print(f"  â€¢ Units needing uppercase: {len(unit_diffs)}")
+print(f"  â€¢ Grades needing uppercase: {len(grade_diffs)}")
+print(f"  â€¢ Descriptions needing uppercase/trim: {len(desc_diffs)}")
 print(f"SPACE DUPLICATES: {len(cat_space_diffs)}")
 print(f"POSSIBLE SPELLING DUPLICATES (Categories): {len(cat_spelling_candidates)}")
 print(f"POSSIBLE SPELLING DUPLICATES (Descriptions): {len(desc_spelling_candidates)}")

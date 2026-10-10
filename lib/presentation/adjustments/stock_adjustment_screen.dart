@@ -33,9 +33,8 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _requestAuthorization();
-    });
+    // Protected feature: do NOT automatically trigger authorization popup on startup/login.
+    // User intentionally taps "Enter PIN" on the locked screen state.
   }
 
   @override
@@ -56,7 +55,9 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
       if (ok) {
         setState(() => _isAuthorized = true);
       } else {
-        Navigator.maybePop(context);
+        if (!widget.isEmbedded) {
+          Navigator.maybePop(context);
+        }
       }
     }
   }

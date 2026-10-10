@@ -1,11 +1,11 @@
-import os
+﻿import os
 import sys
 import psycopg2
 
 sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_REF = "japxiaxyabhhhclphbqr"
-PASSWORD = "mapleconnect2307"
+PASSWORD = os.environ["SUPABASE_DB_PASSWORD"]
 HOST = "aws-0-ap-northeast-1.pooler.supabase.com"
 PORT = 5432
 USER = f"postgres.{PROJECT_REF}"
@@ -13,7 +13,7 @@ DBNAME = "postgres"
 
 def run():
     print("=" * 80)
-    print("BENCHMARK MMS — DIRECT SUPABASE PRODUCTION DATA MIGRATION")
+    print("BENCHMARK MMS â€” DIRECT SUPABASE PRODUCTION DATA MIGRATION")
     print(f"Connecting to {HOST}:{PORT} (Project: {PROJECT_REF})...")
     print("=" * 80)
 
@@ -149,13 +149,13 @@ def run():
         st = "MATCH" if cnt == 0 else "MISMATCH"
         if st != "MATCH":
             all_matched = False
-        print(f"  • {et:<20} : {cnt} rows (Expected: 0) -> [{st}]")
+        print(f"  â€¢ {et:<20} : {cnt} rows (Expected: 0) -> [{st}]")
 
     print("\n" + "=" * 84)
     if all_matched:
-        print("🎉 MIGRATION COMPLETED SUCCESSFULLY WITH 100% PRODUCTION PARITY!")
+        print("ðŸŽ‰ MIGRATION COMPLETED SUCCESSFULLY WITH 100% PRODUCTION PARITY!")
     else:
-        print("⚠️ Some discrepancies detected. Check the log output above.")
+        print("âš ï¸ Some discrepancies detected. Check the log output above.")
     print("=" * 84)
 
     cur.close()

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/formatters/quantity_formatter.dart';
-import '../../core/responsive/responsive_breakpoints.dart';
 import '../../core/theme/glass_widgets.dart';
 import '../../data/models/dashboard_summary_model.dart';
 import '../../shared/widgets/empty_state_widget.dart';
@@ -13,6 +12,7 @@ import '../invoices/add_invoice_screen.dart';
 import '../invoices/ocr_scan_screen.dart';
 import '../invoices/without_invoice_screen.dart';
 import '../providers/app_providers.dart';
+import '../providers/inventory_settings_provider.dart';
 import '../transfers/add_transfer_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -21,7 +21,6 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final isTablet = ResponsiveBreakpoints.isTabletOrLarger(context);
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -61,30 +60,38 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildKpiSection(context, summary, isTablet),
+                _buildKpiSection(context, summary, ref.watch(inventorySettingsProvider).valueOrNull?.invoiceMaterialExpiryAlertDays ?? 30),
                 const SizedBox(height: 24),
 
                 // Charts & Analytics Section
-                if (isTablet)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 6,
-                        child: _buildCategoryBreakdownCard(summary),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 4,
-                        child: _buildTopMaterialsCard(summary),
-                      ),
-                    ],
-                  )
-                else ...[
-                  _buildCategoryBreakdownCard(summary),
-                  const SizedBox(height: 20),
-                  _buildTopMaterialsCard(summary),
-                ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 720;
+                    if (isWide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: _buildCategoryBreakdownCard(summary),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 4,
+                            child: _buildTopMaterialsCard(summary),
+                          ),
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        _buildCategoryBreakdownCard(summary),
+                        const SizedBox(height: 16),
+                        _buildTopMaterialsCard(summary),
+                      ],
+                    );
+                  },
+                ),
                 const SizedBox(height: 24),
               ],
             ),
@@ -95,10 +102,11 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isPhone = constraints.maxWidth < 600;
+
+        final actions = [
           _buildQuickActionBtn(
             context,
             icon: Icons.receipt_long_rounded,
@@ -106,7 +114,6 @@ class DashboardScreen extends ConsumerWidget {
             color: AppColors.primary,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddInvoiceScreen())),
           ),
-          const SizedBox(width: 10),
           _buildQuickActionBtn(
             context,
             icon: Icons.local_shipping_rounded,
@@ -114,7 +121,6 @@ class DashboardScreen extends ConsumerWidget {
             color: AppColors.secondary,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDispatchScreen())),
           ),
-          const SizedBox(width: 10),
           _buildQuickActionBtn(
             context,
             icon: Icons.swap_horiz_rounded,
@@ -122,7 +128,6 @@ class DashboardScreen extends ConsumerWidget {
             color: AppColors.accent,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTransferScreen())),
           ),
-          const SizedBox(width: 10),
           _buildQuickActionBtn(
             context,
             icon: Icons.document_scanner_rounded,
@@ -130,7 +135,6 @@ class DashboardScreen extends ConsumerWidget {
             color: AppColors.warning,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OcrScanScreen())),
           ),
-          const SizedBox(width: 10),
           _buildQuickActionBtn(
             context,
             icon: Icons.flash_on_rounded,
@@ -138,8 +142,23 @@ class DashboardScreen extends ConsumerWidget {
             color: AppColors.success,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WithoutInvoiceScreen())),
           ),
-        ],
-      ),
+        ];
+
+        if (isPhone) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: actions.expand((w) => [w, const SizedBox(width: 10)]).toList()..removeLast(),
+            ),
+          );
+        }
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: actions,
+        );
+      },
     );
   }
 
@@ -186,7 +205,7 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildKpiSection(BuildContext context, DashboardSummaryModel summary, bool isTablet) {
+  Widget _buildKpiSection(BuildContext context, DashboardSummaryModel summary, int expiryAlertDays) {
     final kpis = [
       _KpiItem(
         title: 'Total Materials',
@@ -196,6 +215,13 @@ class DashboardScreen extends ConsumerWidget {
         color: AppColors.primary,
       ),
       _KpiItem(
+        title: 'Inventory Value',
+        value: QuantityFormatter.formatCurrency(summary.totalInventoryValue),
+        subtitle: 'Total stock valuation',
+        icon: Icons.account_balance_wallet_rounded,
+        color: AppColors.secondary,
+      ),
+      _KpiItem(
         title: 'Reorder Needed',
         value: summary.reorderItems.toString(),
         subtitle: 'At or below threshold',
@@ -203,7 +229,7 @@ class DashboardScreen extends ConsumerWidget {
         color: AppColors.warning,
       ),
       _KpiItem(
-        title: 'Expiring in 30d',
+        title: 'Expiring in ${expiryAlertDays}d',
         value: summary.expiringSoon.toString(),
         subtitle: 'Urgent usage recommended',
         icon: Icons.timer_outlined,
@@ -217,20 +243,6 @@ class DashboardScreen extends ConsumerWidget {
         color: AppColors.danger,
       ),
       _KpiItem(
-        title: 'Pending Invoices',
-        value: summary.pendingInvoices.toString(),
-        subtitle: 'Awaiting vendor payment',
-        icon: Icons.pending_actions_rounded,
-        color: AppColors.accent,
-      ),
-      _KpiItem(
-        title: 'Storage Batches',
-        value: summary.activeBatches.toString(),
-        subtitle: 'Available for dispatch',
-        icon: Icons.layers_rounded,
-        color: AppColors.primaryLight,
-      ),
-      _KpiItem(
         title: "Today's Invoices",
         value: QuantityFormatter.formatCurrency(summary.todayPurchaseValue),
         subtitle: 'New inward invoice value',
@@ -239,38 +251,48 @@ class DashboardScreen extends ConsumerWidget {
       ),
     ];
 
-    if (isTablet) {
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 2.1,
-          crossAxisSpacing: 14,
-          mainAxisSpacing: 14,
-        ),
-        itemCount: kpis.length,
-        itemBuilder: (context, i) => _buildKpiCard(kpis[i]),
-      );
-    } else {
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.45,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        itemCount: kpis.length,
-        itemBuilder: (context, i) => _buildKpiCard(kpis[i]),
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final int crossCount;
+        final double aspectRatio;
+
+        if (width >= 1100) {
+          crossCount = 6;
+          aspectRatio = 1.45;
+        } else if (width >= 750) {
+          crossCount = 3;
+          aspectRatio = 1.75;
+        } else if (width >= 480) {
+          crossCount = 2;
+          aspectRatio = 1.5;
+        } else if (width >= 340) {
+          crossCount = 2;
+          aspectRatio = 1.3;
+        } else {
+          crossCount = 1;
+          aspectRatio = 2.6;
+        }
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossCount,
+            childAspectRatio: aspectRatio,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: kpis.length,
+          itemBuilder: (context, i) => _buildKpiCard(kpis[i]),
+        );
+      },
+    );
   }
 
   Widget _buildKpiCard(_KpiItem item) {
     return GlassCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       accentColor: item.color,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,16 +301,21 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                item.title,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
+              const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
                   color: item.color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
@@ -297,15 +324,18 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ],
           ),
-          Text(
-            item.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.5,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              item.value,
+              maxLines: 1,
+              style: GoogleFonts.inter(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           Text(
@@ -332,14 +362,19 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Stock by Category',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+              Expanded(
+                child: Text(
+                  'Stock by Category',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               NeonPill(
                 label: '${list.length} Categories',
                 color: AppColors.accent,
@@ -453,9 +488,15 @@ class DashboardScreen extends ConsumerWidget {
                           style: GoogleFonts.inter(fontSize: 12, color: AppColors.textPrimary),
                         ),
                       ),
-                      Text(
-                        '${QuantityFormatter.formatClean(c.totalQuantity)} (${c.itemCount} items)',
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accent),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          '${QuantityFormatter.formatClean(c.totalQuantity)} (${c.itemCount} items)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accent),
+                        ),
                       ),
                     ],
                   ),
@@ -476,14 +517,19 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Top Stocked Materials',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+              Expanded(
+                child: Text(
+                  'Top Stocked Materials',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               const Icon(Icons.star_rounded, size: 18, color: AppColors.warning),
             ],
           ),
@@ -529,14 +575,22 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                           Text(
                             item.materialCode,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
                           ),
                         ],
                       ),
                     ),
-                    Text(
-                      QuantityFormatter.formatDualUnit(item.quantity, item.unit),
-                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        QuantityFormatter.formatDualUnit(item.quantity, item.unit),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      ),
                     ),
                   ],
                 );

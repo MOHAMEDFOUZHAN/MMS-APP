@@ -1,11 +1,47 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/formatters/quantity_formatter.dart';
 import '../../core/utils/text_standardizer.dart';
+import '../models/material_lot_model.dart';
 import '../models/material_model.dart';
 
 class MaterialsRepository {
   SupabaseClient get _client => SupabaseConfig.client;
+
+  Future<List<MaterialModel>> fetchLiveMaterialsSummary({
+    String? search,
+    String? category,
+    String? grade,
+    String? status, // 'all', 'reorder', 'expiring', 'out_of_stock'
+    DateTime? fromDate,
+    DateTime? toDate,
+    int limit = 100,
+    int offset = 0,
+    int? expiryDays,
+  }) async {
+    try {
+      final params = <String, dynamic>{
+        'p_search': (search != null && search.trim().isNotEmpty) ? search.trim() : null,
+        'p_category': (category != null && category.isNotEmpty && category != 'All') ? category : null,
+        'p_grade': (grade != null && grade.isNotEmpty && grade != 'All') ? grade : null,
+        'p_status': status ?? 'all',
+        'p_from_date': fromDate != null ? QuantityFormatter.toIsoDate(fromDate) : null,
+        'p_to_date': toDate != null ? QuantityFormatter.toIsoDate(toDate) : null,
+        'p_limit': limit,
+        'p_offset': offset,
+        if (expiryDays != null) 'p_expiry_days': expiryDays,
+      };
+
+      final response = await _client.rpc('get_live_materials_summary', params: params);
+
+      return (response as List<dynamic>)
+          .map((json) => MaterialModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw AppException.from(e);
+    }
+  }
 
   Future<List<MaterialModel>> fetchMaterials({
     String? search,
@@ -13,6 +49,7 @@ class MaterialsRepository {
     String? status, // 'all', 'reorder', 'expiring', 'out_of_stock'
     int limit = 100,
     int offset = 0,
+    int invoiceMaterialExpiryAlertDays = 30,
   }) async {
     try {
       var query = _client.from('materials').select();
@@ -27,12 +64,72 @@ class MaterialsRepository {
       }
 
       if (status == 'reorder') {
-        query = query.filter('quantity', 'lte', 'reorder_level').gt('quantity', 0);
+        try {
+          return await fetchLiveMaterialsSummary(
+            search: search,
+            category: category,
+            status: 'reorder',
+            limit: limit,
+            offset: offset,
+            expiryDays: invoiceMaterialExpiryAlertDays,
+          );
+        } catch (_) {
+          var query = _client.from('materials').select();
+          if (category != null && category.isNotEmpty && category != 'All') {
+            query = query.eq('category', category);
+          }
+          if (search != null && search.trim().isNotEmpty) {
+            final term = TextStandardizer.collapseSpaces(search);
+            query = query.or('material_code.ilike.%$term%,description.ilike.%$term%');
+          }
+          final res = await query.gt('quantity', 0).order('material_code', ascending: true);
+          final all = (res as List<dynamic>)
+              .map((json) => MaterialModel.fromJson(json as Map<String, dynamic>))
+              .where((m) => m.reorderLevel > 0 && m.quantity <= m.reorderLevel && m.quantity > 0)
+              .toList();
+          return all.skip(offset).take(limit).toList();
+        }
       } else if (status == 'out_of_stock') {
-        query = query.filter('quantity', 'lte', 0);
+        try {
+          return await fetchLiveMaterialsSummary(
+            search: search,
+            category: category,
+            status: 'out_of_stock',
+            limit: limit,
+            offset: offset,
+          );
+        } catch (_) {
+          var query = _client.from('materials').select();
+          if (category != null && category.isNotEmpty && category != 'All') {
+            query = query.eq('category', category);
+          }
+          if (search != null && search.trim().isNotEmpty) {
+            final term = TextStandardizer.collapseSpaces(search);
+            query = query.or('material_code.ilike.%$term%,description.ilike.%$term%');
+          }
+          final res = await query.filter('quantity', 'lte', 0).order('material_code', ascending: true).range(offset, offset + limit - 1);
+          return (res as List<dynamic>)
+              .map((json) => MaterialModel.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
       } else if (status == 'expiring') {
-        final thirtyDaysFromNow = DateTime.now().add(const Duration(days: 30)).toIso8601String().split('T')[0];
-        query = query.not('expiry_date', 'is', null).lte('expiry_date', thirtyDaysFromNow);
+        try {
+          return await fetchLiveMaterialsSummary(
+            search: search,
+            category: category,
+            status: 'expiring',
+            limit: limit,
+            offset: offset,
+            expiryDays: invoiceMaterialExpiryAlertDays,
+          );
+        } catch (_) {
+          final alertDaysFromNow = DateTime.now().add(Duration(days: invoiceMaterialExpiryAlertDays)).toIso8601String().split('T')[0];
+          final todayStr = DateTime.now().toIso8601String().split('T')[0];
+          query = query
+              .not('expiry_date', 'is', null)
+              .gte('expiry_date', todayStr)
+              .lte('expiry_date', alertDaysFromNow);
+        }
       }
 
       final response = await query.order('material_code', ascending: true).range(offset, offset + limit - 1);
@@ -45,21 +142,22 @@ class MaterialsRepository {
     }
   }
 
-  Future<List<MaterialModel>> fetchMaterialLots(String materialCode) async {
+  Future<List<MaterialLotModel>> fetchMaterialLots(String materialCode) async {
     try {
       final response = await _client
-          .from('materials')
+          .from('material_lots')
           .select()
           .eq('material_code', materialCode)
-          .order('id', ascending: true);
+          .order('lot_date', ascending: false);
 
       return (response as List<dynamic>)
-          .map((json) => MaterialModel.fromJson(json as Map<String, dynamic>))
+          .map((json) => MaterialLotModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw AppException.from(e);
     }
   }
+
 
   /// Live search by material_code OR description — used in Invoice/Transfer/Dispatch dropdowns.
   Future<List<MaterialModel>> searchMaterials(String query, {int limit = 25}) async {
@@ -92,14 +190,36 @@ class MaterialsRepository {
   /// Fetch a single material master record by code — used for auto-fill on selection.
   Future<MaterialModel?> getMaterialByCode(String code) async {
     try {
+      final clean = code.trim();
+      if (clean.isEmpty) return null;
       final response = await _client
           .from('materials')
           .select()
-          .eq('material_code', code.trim())
+          .ilike('material_code', clean)
           .limit(1);
       final list = response as List<dynamic>;
       if (list.isEmpty) return null;
       return MaterialModel.fromJson(list.first as Map<String, dynamic>);
+    } catch (e) {
+      throw AppException.from(e);
+    }
+  }
+
+  /// Fetch a single material master record by exact description (case-insensitive).
+  Future<MaterialModel?> getMaterialByExactDescription(String description) async {
+    try {
+      final clean = description.trim();
+      if (clean.isEmpty) return null;
+      final response = await _client
+          .from('materials')
+          .select()
+          .ilike('description', clean)
+          .limit(2);
+      final list = response as List<dynamic>;
+      if (list.length == 1) {
+        return MaterialModel.fromJson(list.first as Map<String, dynamic>);
+      }
+      return null;
     } catch (e) {
       throw AppException.from(e);
     }
@@ -123,6 +243,26 @@ class MaterialsRepository {
       throw AppException.from(e);
     }
   }
+
+  Future<List<String>> fetchGrades() async {
+    try {
+      final response = await _client
+          .from('materials')
+          .select('grade')
+          .not('grade', 'is', null);
+
+      final set = <String>{};
+      for (final row in response as List<dynamic>) {
+        final g = row['grade']?.toString().trim();
+        if (g != null && g.isNotEmpty) set.add(g);
+      }
+      final list = set.toList()..sort();
+      return list;
+    } catch (e) {
+      throw AppException.from(e);
+    }
+  }
+
 
   Future<void> registerNewMaterial({
     required String code,

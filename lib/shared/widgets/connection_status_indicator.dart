@@ -49,6 +49,59 @@ class ConnectionStatusIndicator extends ConsumerWidget {
         break;
     }
 
+    if (compact) {
+      return Tooltip(
+        message: '$label (Tap for sync status)',
+        child: InkWell(
+          onTap: () => PendingOperationsSheet.show(context),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: dotColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: dotColor.withValues(alpha: 0.35), width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  icon,
+                ] else ...[
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: dotColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: dotColor.withValues(alpha: 0.8),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (conn.pendingCount > 0) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    '${conn.pendingCount}',
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: dotColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return InkWell(
       onTap: () => PendingOperationsSheet.show(context),
       borderRadius: BorderRadius.circular(16),

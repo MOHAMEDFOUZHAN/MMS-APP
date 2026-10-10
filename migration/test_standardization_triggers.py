@@ -1,10 +1,11 @@
+﻿import os
 import sys
 import psycopg2
 
 sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_REF = 'japxiaxyabhhhclphbqr'
-PASSWORD = 'mapleconnect2307'
+PASSWORD = os.environ["SUPABASE_DB_PASSWORD"]
 HOST = 'aws-0-ap-northeast-1.pooler.supabase.com'
 PORT = 5432
 USER = f'postgres.{PROJECT_REF}'

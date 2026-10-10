@@ -1,9 +1,10 @@
+﻿import os
 import psycopg2
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_REF = 'japxiaxyabhhhclphbqr'
-PASSWORD = 'mapleconnect2307'
+PASSWORD = os.environ["SUPABASE_DB_PASSWORD"]
 HOST = 'aws-0-ap-northeast-1.pooler.supabase.com'
 PORT = 5432
 USER = f'postgres.{PROJECT_REF}'
@@ -30,7 +31,7 @@ ORDER BY routine_name;
 routines = [r[0] for r in cur.fetchall()]
 print(f"\nVerified {len(routines)} active routines in Supabase:")
 for r in routines:
-    print(f"  • {r}")
+    print(f"  â€¢ {r}")
 
 cur.close()
 conn.close()

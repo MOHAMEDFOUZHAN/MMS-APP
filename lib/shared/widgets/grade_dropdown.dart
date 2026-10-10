@@ -16,7 +16,7 @@ class GradeDropdown extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.labelText = 'Tea Grade',
+    this.labelText = 'Grade',
     this.isExpanded = true,
     this.isDense = true,
     this.validator,
@@ -25,9 +25,15 @@ class GradeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedValue = FactoryConstants.normalizeGradeCode(value);
+    final rawVal = value?.trim() ?? '';
+    final normalizedValue = rawVal.isEmpty ? '' : FactoryConstants.normalizeGradeCode(rawVal);
 
-    final allItems = <GradeItem>[...FactoryConstants.gradeList];
+    // Empty / no grade option is default
+    final allItems = <GradeItem>[
+      const GradeItem(code: '', name: '—'),
+      ...FactoryConstants.gradeList,
+    ];
+
     final exists = allItems.any((item) => item.code.toUpperCase() == normalizedValue.toUpperCase());
 
     if (!exists && normalizedValue.isNotEmpty) {
@@ -39,7 +45,7 @@ class GradeDropdown extends StatelessWidget {
 
     final selectedCode = exists
         ? allItems.firstWhere((item) => item.code.toUpperCase() == normalizedValue.toUpperCase()).code
-        : (normalizedValue.isNotEmpty ? normalizedValue : 'BP');
+        : normalizedValue;
 
     return DropdownButtonFormField<String>(
       value: selectedCode,
@@ -60,34 +66,35 @@ class GradeDropdown extends StatelessWidget {
       validator: validator,
       onChanged: onChanged,
       items: allItems.map((grade) {
+        final isNone = grade.code.isEmpty;
         return DropdownMenuItem<String>(
           value: grade.code,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.15),
+                  color: isNone ? Colors.transparent : AppColors.secondary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  grade.code,
+                  isNone ? '—' : grade.code,
                   style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.secondary,
+                    color: isNone ? AppColors.textMuted : AppColors.secondary,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
+              if (!isNone && grade.name != grade.code) ...[
+                const SizedBox(width: 8),
+                Text(
                   grade.name,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: AppColors.textSecondary),
                 ),
-              ),
+              ],
             ],
           ),
         );

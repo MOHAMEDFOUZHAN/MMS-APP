@@ -111,7 +111,14 @@ class _MaterialDirectoryReportState extends ConsumerState<MaterialDirectoryRepor
                                         style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryLight),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text('• ${item.category}', style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                      Flexible(
+                                        child: Text(
+                                          '• ${item.category}',
+                                          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 2),

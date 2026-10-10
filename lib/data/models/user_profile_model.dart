@@ -19,11 +19,13 @@ class UserProfileModel {
     this.updatedAt,
   });
 
-  bool get isAdmin => role.toUpperCase() == 'ADMIN';
+  bool get isOwner => role.toUpperCase() == 'OWNER' || permissions.contains('owner.*');
+  bool get isAdmin => role.toUpperCase() == 'ADMIN' || isOwner;
   bool get isManager => role.toUpperCase() == 'MANAGER' || isAdmin;
+  bool get isTeaUser => role.toUpperCase() == 'TEA_USER' || role.toUpperCase() == 'TEA' || username.toLowerCase() == 'bm';
 
   bool hasPermission(String perm) {
-    if (isAdmin) return true;
+    if (isOwner || isAdmin) return true;
     if (permissions.contains('*') || permissions.contains(perm)) return true;
     final prefix = perm.split('.').first;
     if (permissions.contains('$prefix.*')) return true;

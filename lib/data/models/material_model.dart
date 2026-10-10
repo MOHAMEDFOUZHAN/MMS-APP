@@ -14,6 +14,11 @@ class MaterialModel {
   final DateTime? lastUpdated;
   final String hsnSac;
   final String grade;
+  final double purchased;
+  final double transferOut;
+  final double returnIn;
+  final String shelvesBin;
+  final int lotCount;
 
   MaterialModel({
     required this.id,
@@ -31,11 +36,18 @@ class MaterialModel {
     this.lastUpdated,
     this.hsnSac = '',
     this.grade = '',
+    this.purchased = 0.0,
+    this.transferOut = 0.0,
+    this.returnIn = 0.0,
+    this.shelvesBin = '—',
+    this.lotCount = 0,
   });
+
+  double get closingStock => quantity;
 
   bool get isOutOfStock => quantity <= 0.0001;
 
-  bool get isReorder => !isOutOfStock && quantity <= reorderLevel;
+  bool get isReorder => !isOutOfStock && reorderLevel > 0 && quantity <= reorderLevel;
 
   bool get isExpiringSoon {
     if (expiryDate == null) return false;
@@ -60,32 +72,55 @@ class MaterialModel {
       }
     }
 
+    double parseDouble(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString()) ?? 0.0;
+    }
+
+    int parseInt(dynamic val) {
+      if (val == null) return 0;
+      if (val is num) return val.toInt();
+      return int.tryParse(val.toString()) ?? 0;
+    }
+
     return MaterialModel(
-      id: (json['id'] as num?)?.toInt() ?? 0,
+      id: parseInt(json['id']),
       materialCode: json['material_code']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       category: json['category']?.toString() ?? 'General',
-      openingStock: (json['opening_stock'] as num?)?.toDouble() ?? 0.0,
-      quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
-      reorderLevel: (json['reorder_level'] as num?)?.toDouble() ?? 0.0,
-      purchaseDate: parseDate(json['purchase_date']),
-      expiryDate: parseDate(json['expiry_date']),
+      openingStock: parseDouble(json['opening_stock']),
+      quantity: json['closing_stock'] != null
+          ? parseDouble(json['closing_stock'])
+          : parseDouble(json['quantity']),
+      reorderLevel: parseDouble(json['reorder_level']),
+      purchaseDate: parseDate(json['purchase_date'] ?? json['lot_date']),
+      expiryDate: parseDate(json['expiry_date'] ?? json['earliest_expiry']),
       lotNo: json['lot_no']?.toString() ?? '',
-      unitPrice: (json['unit_price'] as num?)?.toDouble() ?? 0.0,
+      unitPrice: parseDouble(json['unit_price']),
       unit: json['unit']?.toString() ?? 'kg',
       lastUpdated: parseDate(json['last_updated']),
       hsnSac: json['hsn_sac']?.toString() ?? '',
       grade: json['grade']?.toString() ?? '',
+      purchased: parseDouble(json['purchased']),
+      transferOut: parseDouble(json['transfer_out']),
+      returnIn: parseDouble(json['return_in']),
+      shelvesBin: (json['shelves_bin'] != null && json['shelves_bin'].toString().trim().isNotEmpty)
+          ? json['shelves_bin'].toString()
+          : '—',
+      lotCount: parseInt(json['lot_count']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'material_code': materialCode,
       'description': description,
       'category': category,
       'opening_stock': openingStock,
       'quantity': quantity,
+      'closing_stock': closingStock,
       'reorder_level': reorderLevel,
       'purchase_date': purchaseDate?.toIso8601String().split('T')[0],
       'expiry_date': expiryDate?.toIso8601String().split('T')[0],
@@ -94,6 +129,12 @@ class MaterialModel {
       'unit': unit,
       'hsn_sac': hsnSac,
       'grade': grade,
+      'purchased': purchased,
+      'transfer_out': transferOut,
+      'return_in': returnIn,
+      'shelves_bin': shelvesBin,
+      'lot_count': lotCount,
     };
   }
 }
+

@@ -65,12 +65,15 @@ class InvoiceLayoutParser:
                 "billno", "irn", "ack", "ackno", "ackdate", "recipient", "contact", "email", "modeterms", "otherreferences"
             ]
             for t in tokens:
-                if t["y"] < 400 and t["x"] < 500:
+                if t["y"] < 500 and t["x"] < 500:
                     raw_t = t["text"].strip()
                     tl_clean = re.sub(r"[^a-z0-9]", "", raw_t.lower())
                     if "consignee" in tl_clean or "buyer" in tl_clean:
                         break
                     if any(kw in tl_clean for kw in ignore_kws):
+                        continue
+                    # Skip date-like strings
+                    if re.search(r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})", raw_t, re.IGNORECASE):
                         continue
                     if len(raw_t) > 3 and not re.search(GST_REGEX, raw_t):
                         if re.search(r"[0-9a-zA-Z]{16,}", raw_t) or re.match(r"^[:0-9a-fA-F\s\-]{12,}$", raw_t):
@@ -89,13 +92,13 @@ class InvoiceLayoutParser:
         invoice_no = ""
         for t in tokens:
             txt = t["text"]
-            if re.search(r"Invo[i1l]ce\s*No", txt, re.IGNORECASE) and not re.search(r"e-Way", txt, re.IGNORECASE):
-                m = re.search(r"Invo[i1l]ce\s*No[\.\s:]+([A-Za-z0-9\/\-_]+)", txt, re.IGNORECASE)
+            if re.search(r"Inv[o0y]?[i1l]ce\s*No|Inv[a-z]*\s*No", txt, re.IGNORECASE) and not re.search(r"e-Way", txt, re.IGNORECASE):
+                m = re.search(r"Inv[o0y]?[i1l]ce\s*No[\.\s:]+([A-Za-z0-9\/\-_]+)", txt, re.IGNORECASE)
                 if m and not m.group(1).lower() in ["e-way", "dated", "no", "date"]:
                     invoice_no = m.group(1).strip()
                     break
                 for below in tokens:
-                    if 5 < (below["y"] - t["y"]) < 40 and abs(below["x"] - t["x"]) < 60:
+                    if 5 < (below["y"] - t["y"]) < 45 and abs(below["x"] - t["x"]) < 70:
                         cand = below["text"].strip()
                         if cand and not any(kw in cand.lower() for kw in ["e-way", "dated", "delivery", "invoice", "date", "reference"]):
                             invoice_no = cand
@@ -111,9 +114,10 @@ class InvoiceLayoutParser:
                     break
 
         if not invoice_no:
-            m = re.search(r"\b(INV[\-\/][A-Za-z0-9\-\/]+|\d{4,8})\b", full_text, re.IGNORECASE)
-            if m:
-                invoice_no = m.group(1)
+            for cand in re.findall(r"\b([A-Z]{1,4}[\-\/][A-Za-z0-9\-\/]+|\d{2,5})\b", full_text):
+                if not re.match(r"^641\d{3}$", cand) and not re.match(r"^202[0-9]$", cand):
+                    invoice_no = cand
+                    break
 
         # 5. Invoice Date (Section 14)
         invoice_date = ""
@@ -141,24 +145,55 @@ class InvoiceLayoutParser:
                     break
 
         # 6. Dynamic Column Detection & Table Bounds (Section 16)
-        header_tokens = []
+        header_candidates = []
         for t in tokens:
             tl = t["text"].lower()
-            if 250 <= t["y"] <= 550:
-                if any(h in tl for h in ["items", "descript", "particular", "goods", "product"]) and t["x"] < 450:
-                    header_tokens.append(("desc", t))
-                elif any(h in tl for h in ["hsn/sac", "hsn", "sac"]) and (400 <= t["x"] < 600):
-                    header_tokens.append(("hsn", t))
-                elif any(h in tl for h in ["quantity", "qty", "qnty"]) and (500 <= t["x"] < 700):
-                    header_tokens.append(("qty", t))
-                elif any(h in tl for h in ["rate", "price"]) and (600 <= t["x"] < 850):
-                    header_tokens.append(("rate", t))
-                elif any(h in tl for h in ["tax", "gst %", "tax %", "tax amt"]) and (550 <= t["x"] < 850):
-                    header_tokens.append(("tax", t))
-                elif any(h in tl for h in ["amount", "total"]) and t["x"] >= 800:
-                    header_tokens.append(("amount", t))
+            if any(h in tl for h in ["items", "descript", "particular", "goods", "gopds", "product", "hsn", "sac", "quantity", "qty", "rate", "price", "amount", "disc"]):
+                header_candidates.append(t)
 
-        header_y = float(np.median([t[1]["y"] for t in header_tokens])) if header_tokens else 330.0
+        header_clusters = {}
+        for t in header_candidates:
+            matched = False
+            for y_center in list(header_clusters.keys()):
+                if abs(t["y"] - y_center) <= 22.0:
+                    header_clusters[y_center].append(t)
+                    matched = True
+                    break
+            if not matched:
+                header_clusters[t["y"]] = [t]
+
+        best_cluster_y = None
+        best_cluster_score = 0
+        for y_c, row_t in header_clusters.items():
+            row_texts = " ".join(t["text"].lower() for t in row_t)
+            score = 0
+            if any(k in row_texts for k in ["descript", "particular", "goods", "gopds"]): score += 4
+            if any(k in row_texts for k in ["qty", "quantity"]): score += 3
+            if any(k in row_texts for k in ["rate", "price"]): score += 3
+            if any(k in row_texts for k in ["amount", "total"]): score += 3
+            if any(k in row_texts for k in ["hsn", "sac"]): score += 2
+            if score > best_cluster_score and len(row_t) >= 2:
+                best_cluster_score = score
+                best_cluster_y = y_c
+
+        header_y = float(best_cluster_y) if best_cluster_y is not None else 330.0
+
+        header_tokens = []
+        for t in tokens:
+            if abs(t["y"] - header_y) <= 25.0:
+                tl = t["text"].lower()
+                if any(h in tl for h in ["items", "descript", "particular", "goods", "gopds", "product"]) and t["x"] < 450:
+                    header_tokens.append(("desc", t))
+                elif any(h in tl for h in ["hsn/sac", "hsn", "sac"]) and (350 <= t["x"] < 650):
+                    header_tokens.append(("hsn", t))
+                elif any(h in tl for h in ["quantity", "qty", "qnty"]) and (350 <= t["x"] < 700):
+                    header_tokens.append(("qty", t))
+                elif any(h in tl for h in ["rate", "price"]) and (450 <= t["x"] < 850):
+                    header_tokens.append(("rate", t))
+                elif any(h in tl for h in ["tax", "gst %", "tax %", "tax amt"]) and (450 <= t["x"] < 850):
+                    header_tokens.append(("tax", t))
+                elif any(h in tl for h in ["amount", "total"]) and t["x"] >= 750:
+                    header_tokens.append(("amount", t))
 
         stop_keywords = [
             "subtotal", "sub total", "taxable amount", "taxable value",
@@ -168,7 +203,8 @@ class InvoiceLayoutParser:
             "cgst", "sgst", "igst", "round off", "rounded off"
         ]
 
-        totals_start_y = 700.0
+        max_token_y = max(t["y"] for t in tokens) if tokens else 1200.0
+        totals_start_y = max_token_y + 50.0
         for t in tokens:
             tl = t["text"].lower()
             if any(sk in tl for sk in stop_keywords):
@@ -251,12 +287,11 @@ class InvoiceLayoutParser:
             if "round off" in tl or "rounded off" in tl:
                 for near in totals_tokens:
                     if near["x"] > 750 and abs(near["y_adj"] - t["y_adj"]) <= 6.0:
-                        # Round off can be negative or positive decimal (e.g. -0.40, +0.404)
                         raw_num = near["text"].replace(",", "").strip()
                         m_ro = re.search(r"[-+]?\d+(?:\.\d+)?", raw_num)
                         if m_ro:
                             val = float(m_ro.group(0))
-                            if abs(val) < 100:  # Round-off is usually less than 10 rupees
+                            if abs(val) < 100:
                                 round_off = val
                                 break
                 if round_off: break
@@ -267,27 +302,33 @@ class InvoiceLayoutParser:
                 if any(skip in tl for skip in ["in words", "taxable", "bank", "qr", "received"]):
                     continue
                 for near in totals_tokens:
-                    if near["x"] > 750 and abs(near["y_adj"] - t["y_adj"]) <= 6.0:
+                    if near["x"] > 700 and abs(near["y_adj"] - t["y_adj"]) <= 7.0:
                         val = clean_amount(near["text"])
                         if val > grand_total:
                             grand_total = val
-                if grand_total: break
 
         # 8. Line Item Extraction (Section 15: Dual Strategy)
         item_tokens = [t for t in tokens if (header_y_adj + 8) <= t["y_adj"] < (totals_start_y_adj - 5)]
         clean_item_tokens = [
             t for t in item_tokens
-            if not any(sk in t["text"].lower() for sk in ["received", "quantity", "box from", "bill no", "checked by"])
+            if not any(sk in t["text"].lower() for sk in ["received", "quantity", "box from", "bill no", "checked by", "igst", "cgst", "sgst", "round off"])
             and not re.search(r"^\W*\d+[\.\d]*\s*[\+\@]\s*\d+", t["text"].strip())
         ]
 
-        amt_min_x = col_x.get("amount", 850.0) - 50.0
+        amt_min_x = col_x.get("amount", 850.0) - 60.0
         row_amounts = []
         for t in clean_item_tokens:
             if t["x"] >= amt_min_x:
                 val = clean_amount(t["text"])
                 if val > 10.0:
-                    row_amounts.append((t["y_adj"], val, t))
+                    is_tax_row = False
+                    for near in clean_item_tokens:
+                        if abs(near["y_adj"] - t["y_adj"]) <= 10.0:
+                            if any(k in near["text"].lower() for k in ["igst", "cgst", "sgst", "round off"]):
+                                is_tax_row = True
+                                break
+                    if not is_tax_row:
+                        row_amounts.append((t["y_adj"], val, t))
 
         items: List[Dict[str, Any]] = []
 
@@ -414,41 +455,77 @@ class InvoiceLayoutParser:
                 rate_incl = 0.0
                 rate_excl = 0.0
                 amount = 0.0
+                numeric_tokens = []
 
                 for t in row_sorted:
                     x = t["x"]
                     txt = t["text"].strip()
                     tl = txt.lower()
 
-                    if x < 480:
-                        if re.match(r"^\d{1,2}$", txt) and x < 120:
-                            continue
-                        if txt in ["1B", "1 Bag", "18"]:
-                            continue
-                        desc_parts.append(txt)
-                    elif 480 <= x < 560:
-                        m_hsn = re.search(r"\d{4,8}", txt)
-                        if m_hsn:
-                            hsn_code = m_hsn.group(0)
-                        elif any(c.isalpha() for c in txt):
-                            desc_parts.append(txt)
-                    elif 560 <= x < 615:
-                        m_pct = re.search(r"(\d+(?:\.\d+)?)\s*%", txt)
-                        if m_pct:
-                            gst_pct = float(m_pct.group(1))
-                    elif 615 <= x < 690:
-                        q_val = clean_amount(txt, is_quantity=True)
+                    # 1. Skip serial number
+                    if x < 120 and (re.match(r"^\d{1,2}$", txt) or txt.lower() in ["no.", "sl", "sl.", "s.no", "particulars"]):
+                        continue
+
+                    # 2. Attached HSN code (e.g. Pistachio.Inshell-08025100)
+                    m_attach_hsn = re.search(r"^(.*?)[-\s\.]+(\d{4,8})$", txt)
+                    if m_attach_hsn and len(m_attach_hsn.group(1)) > 2:
+                        if not hsn_code:
+                            hsn_code = m_attach_hsn.group(2)
+                        desc_parts.append(m_attach_hsn.group(1).replace(".", " "))
+                        continue
+
+                    # 3. Quantity with explicit unit
+                    m_unit = re.search(r"(\d+(?:\.\d+)?)\s*(kgs?|kg|nos?|pcs|packet|pkt|box|roll|tin|litre|ltr|chip|gm)\b", txt, re.IGNORECASE)
+                    if m_unit:
+                        q_val = float(m_unit.group(1))
                         if q_val > 0:
                             qty = q_val
-                        unit = normalize_unit(tl)
-                    elif 690 <= x < 765:
-                        rate_incl = clean_amount(txt, is_rate=True)
-                    elif 765 <= x < 835:
-                        rate_excl = clean_amount(txt, is_rate=True)
-                    elif 835 <= x < 880:
-                        unit = normalize_unit(tl)
-                    elif x >= 880:
-                        amount = clean_amount(txt)
+                        unit = normalize_unit(m_unit.group(2))
+                        continue
+
+                    # 4. Standalone unit
+                    norm_u = normalize_unit(tl)
+                    if norm_u in ["KG", "PCS", "ROLL", "BAG", "BOX", "TIN", "LTR"]:
+                        unit = norm_u
+                        continue
+
+                    # 5. Tax percentage
+                    m_pct = re.search(r"(\d+(?:\.\d+)?)\s*%", txt)
+                    if m_pct:
+                        gst_pct = float(m_pct.group(1))
+                        continue
+
+                    # 6. Standalone HSN
+                    if re.match(r"^\d{4,8}$", txt):
+                        if not hsn_code:
+                            hsn_code = txt
+                        continue
+
+                    # 7. Pure numbers
+                    val = clean_amount(txt)
+                    if val > 0 and not any(c.isalpha() for c in txt):
+                        numeric_tokens.append((x, val, txt))
+                        continue
+
+                    # 8. Description text
+                    if not any(sk in tl for sk in ["bill no", "quantity", "received", "box from"]):
+                        desc_parts.append(txt)
+
+                # Assign numeric tokens by position (rate vs amount vs qty if missing)
+                if numeric_tokens:
+                    numeric_tokens.sort(key=lambda item: item[0])
+                    if len(numeric_tokens) >= 2:
+                        amount = numeric_tokens[-1][1]
+                        rate_excl = numeric_tokens[-2][1]
+                        if len(numeric_tokens) >= 3 and qty == 0:
+                            qty = numeric_tokens[0][1]
+                    elif len(numeric_tokens) == 1:
+                        if numeric_tokens[0][0] >= (col_x.get("amount", 800.0) - 60.0):
+                            amount = numeric_tokens[0][1]
+                        elif qty == 0 and numeric_tokens[0][0] <= (col_x.get("qty", 500.0) + 40.0):
+                            qty = numeric_tokens[0][1]
+                        else:
+                            rate_excl = numeric_tokens[0][1]
 
                 raw_desc = " ".join(desc_parts).strip()
                 if any(re.search(pat, raw_desc, re.IGNORECASE) for pat in REJECT_PATTERNS):

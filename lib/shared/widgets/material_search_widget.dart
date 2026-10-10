@@ -8,6 +8,7 @@ import '../../data/repositories/materials_repository.dart';
 
 /// Result returned when a user selects a material.
 class MaterialSelection {
+  final int id;
   final String code;
   final String description;
   final String category;
@@ -17,6 +18,7 @@ class MaterialSelection {
   final double reorderLevel;
 
   const MaterialSelection({
+    this.id = 0,
     required this.code,
     required this.description,
     required this.category,
@@ -27,6 +29,7 @@ class MaterialSelection {
   });
 
   factory MaterialSelection.fromModel(MaterialModel m) => MaterialSelection(
+        id: m.id,
         code: m.materialCode,
         description: m.description,
         category: m.category,
