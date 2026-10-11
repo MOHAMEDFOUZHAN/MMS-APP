@@ -74,7 +74,7 @@ class PendingOperationsSheet extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${pendingList.length} operation${pendingList.length == 1 ? '' : 's'} waiting to sync with Supabase',
+                    '${pendingList.length} operation${pendingList.length == 1 ? '' : 's'} waiting to sync with server',
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: AppColors.textSecondary,

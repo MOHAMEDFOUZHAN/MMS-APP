@@ -1,4 +1,4 @@
-﻿"""
+"""
 Benchmark MMS - Over-The-Air (OTA) Release Publisher
 Usage:
     python publish_update.py
@@ -11,6 +11,7 @@ import sys
 import re
 import argparse
 import subprocess
+import shutil
 import time
 import requests
 from requests.adapters import HTTPAdapter
@@ -29,7 +30,7 @@ BUCKET_NAME = "app-releases"
 
 # DB Config
 PROJECT_REF = 'japxiaxyabhhhclphbqr'
-PASSWORD = os.environ["SUPABASE_DB_PASSWORD"]
+PASSWORD = os.environ.get("SUPABASE_DB_PASSWORD", "mapleconnect2307")
 HOST = 'aws-0-ap-northeast-1.pooler.supabase.com'
 PORT = 5432
 USER = f'postgres.{PROJECT_REF}'
@@ -65,6 +66,20 @@ def build_flutter_apk():
                     os.remove(os.path.join(out_dir, f))
                 except Exception:
                     pass
+
+    root_dir = os.path.dirname(__file__)
+    for f in os.listdir(root_dir):
+        if f.lower().endswith(".apk"):
+            try:
+                os.remove(os.path.join(root_dir, f))
+            except Exception:
+                pass
+
+    if not os.path.exists(r"D:\tmp"):
+        try:
+            os.makedirs(r"D:\tmp", exist_ok=True)
+        except Exception:
+            pass
 
     print("[BUILD] Compiling fresh release APK with Flutter (--split-per-abi)...", flush=True)
     flutter_bin = r"D:\flutter\bin\flutter.bat"
@@ -169,6 +184,15 @@ def main():
     if not os.path.exists(apk_path):
         print(f"[ERROR] APK not found at '{apk_path}'. Run with --build to compile.")
         sys.exit(1)
+
+    root_dir = os.path.dirname(__file__)
+    for target_name in ["Benchmark MMS.apk", "Benchmark_MMS.apk", f"Benchmark_MMS_v{version_name}.apk"]:
+        target_path = os.path.join(root_dir, target_name)
+        try:
+            shutil.copyfile(apk_path, target_path)
+            print(f"[LOCAL] Saved output to: {target_name}")
+        except Exception as e:
+            print(f"[WARN] Failed copying to {target_name}: {e}")
 
     notes = args.notes
     if not notes:

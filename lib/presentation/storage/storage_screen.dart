@@ -109,7 +109,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final productCodeCtrl = TextEditingController();
     final productNameCtrl = TextEditingController();
     final qtyCtrl = TextEditingController();
-    final deptCtrl = TextEditingController(text: 'Finished Goods');
+    final isTea = ref.read(isTeaUserProvider);
+    final deptCtrl = TextEditingController(text: isTea ? 'Tea' : 'Finished Goods');
     final codeFocusNode = FocusNode();
     final nameFocusNode = FocusNode();
     String selectedUom = 'kg';
@@ -119,7 +120,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     // Pre-load existing storage products for instant two-way autocomplete
     List<StorageProductModel> existingProducts = [];
     try {
-      existingProducts = await ref.read(storageProductsRepositoryProvider).searchStorageProducts(null);
+      existingProducts = await ref.read(storageProductsRepositoryProvider).searchStorageProducts(
+            null,
+            category: isTea ? 'TEA' : null,
+          );
     } catch (e) {
       debugPrint('Error loading storage products: $e');
     }
@@ -681,7 +685,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         batchDate: selectedDate,
                         materialCode: code,
                         description: name,
-                        category: 'Finished Goods',
+                        category: isTea ? 'TEA' : 'Finished Goods',
                         grade: selectedGrade,
                         department: deptCtrl.text.trim(),
                         uom: selectedUom,
@@ -1191,38 +1195,46 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     runSpacing: 10,
                     children: [
                       // Storage Title & Subtitle
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: (MediaQuery.of(context).size.width - 48).clamp(200.0, 600.0)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                              ),
+                              child: const Icon(Icons.warehouse_rounded, color: AppColors.primaryLight, size: 22),
                             ),
-                            child: const Icon(Icons.warehouse_rounded, color: AppColors.primaryLight, size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Storage',
-                                style: GoogleFonts.inter(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.5,
-                                  color: AppColors.textPrimary,
-                                ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Storage',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Finished Goods & Batch Inventory',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                'Finished Goods & Batch Inventory',
-                                style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
 
                       // Required Toolbar Buttons: [ Add Storage ] [ All History ] [ Print ] [ Filter ] [ Reset ]
@@ -1513,14 +1525,18 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                 color: const Color(0xB30F172A),
                 border: Border(bottom: BorderSide(color: AppColors.glassBorder)),
               ),
-              child: Row(
-                children: [
-                  _buildViewTab(mode: BatchViewMode.inStock, title: 'Current Stock', icon: Icons.inventory_rounded),
-                  const SizedBox(width: 8),
-                  _buildViewTab(mode: BatchViewMode.allHistory, title: 'All History', icon: Icons.history_rounded),
-                  const SizedBox(width: 8),
-                  _buildViewTab(mode: BatchViewMode.depleted, title: 'Depleted', icon: Icons.archive_outlined),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildViewTab(mode: BatchViewMode.inStock, title: 'Current Stock', icon: Icons.inventory_rounded),
+                    const SizedBox(width: 8),
+                    _buildViewTab(mode: BatchViewMode.allHistory, title: 'All History', icon: Icons.history_rounded),
+                    const SizedBox(width: 8),
+                    _buildViewTab(mode: BatchViewMode.depleted, title: 'Depleted', icon: Icons.archive_outlined),
+                  ],
+                ),
               ),
             ),
 

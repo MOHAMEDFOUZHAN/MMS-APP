@@ -30,6 +30,7 @@ import '../vendors/vendors_screen.dart';
 import '../warehouse/category_locations_screen.dart';
 import '../../features/mira/presentation/pages/mira_page.dart';
 import '../security/security_center_screen.dart';
+import '../../shared/widgets/maple_pro_footer.dart';
 
 // ─── Primary navigation items (bottom bar / rail) ────────────────────────────
 class _PrimaryNavItem {
@@ -47,6 +48,31 @@ class _PrimaryNavItem {
     this.accent = AppColors.primaryLight,
   });
 }
+
+// ─── Restricted Tea navigation items (3 modules only) ───────────────────────
+const List<_PrimaryNavItem> _teaNav = [
+  _PrimaryNavItem(
+    screenIndex: 0,
+    label: 'Transfers',
+    icon: Icons.swap_horiz_rounded,
+    selectedIcon: Icons.swap_horiz_rounded,
+    accent: AppColors.accent,
+  ),
+  _PrimaryNavItem(
+    screenIndex: 1,
+    label: 'Storage',
+    icon: Icons.layers_outlined,
+    selectedIcon: Icons.layers_rounded,
+    accent: AppColors.primaryLight,
+  ),
+  _PrimaryNavItem(
+    screenIndex: 2,
+    label: 'Dispatch',
+    icon: Icons.local_shipping_outlined,
+    selectedIcon: Icons.local_shipping_rounded,
+    accent: AppColors.secondary,
+  ),
+];
 
 const List<_PrimaryNavItem> _primaryNav = [
   _PrimaryNavItem(
@@ -177,6 +203,14 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
+  int _teaCurrentIndex = 0; // 0: Transfers, 1: Storage, 2: Dispatch
+
+  // Dedicated 3 screens for Tea department
+  late final List<Widget> _teaScreens = const [
+    TransfersScreen(isEmbedded: true), // 0: Transfers
+    StorageScreen(),                   // 1: Storage
+    DispatchScreen(),                  // 2: Dispatch
+  ];
 
   // 12 screens in exact order matching screen indices
   late final List<Widget> _screens = const [
@@ -195,6 +229,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   ];
 
   StreamSubscription<NotificationPayload>? _notificationSub;
+  Timer? _otaTimer;
 
   @override
   void initState() {
@@ -207,7 +242,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // 1. Independent OTA Update Check
-      Future.delayed(const Duration(milliseconds: 1000), () {
+      _otaTimer = Timer(const Duration(milliseconds: 1000), () {
         if (mounted) {
           AppUpdateService.instance.checkAndPromptUpdate(context: context);
         }
@@ -226,30 +261,49 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   void dispose() {
+    _otaTimer?.cancel();
     _notificationSub?.cancel();
     super.dispose();
   }
 
   void _handleNotificationNavigation(String refType, String refId) {
+    final isTeaUser = ref.read(isTeaUserProvider);
     switch (refType.toLowerCase()) {
       case 'material':
+        if (isTeaUser) return;
         ref.read(materialsFilterProvider.notifier).update(
               (state) => state.copyWith(search: refId),
             );
         setState(() => _currentIndex = 3);
         break;
       case 'invoice':
+        if (isTeaUser) return;
         setState(() => _currentIndex = 1);
         break;
       case 'transfer':
-        setState(() => _currentIndex = 2);
+        if (isTeaUser) {
+          setState(() => _teaCurrentIndex = 0);
+        } else {
+          setState(() => _currentIndex = 2);
+        }
         break;
       case 'batch':
       case 'storage':
-        setState(() => _currentIndex = 5);
+        if (isTeaUser) {
+          setState(() => _teaCurrentIndex = 1);
+        } else {
+          setState(() => _currentIndex = 5);
+        }
         break;
       case 'dispatch':
-        setState(() => _currentIndex = 7);
+        if (isTeaUser) {
+          setState(() => _teaCurrentIndex = 2);
+        } else {
+          setState(() => _currentIndex = 7);
+        }
+        break;
+      case 'update':
+        AppUpdateService.instance.showUpdateDialog(context);
         break;
       default:
         break;
@@ -319,11 +373,125 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final isTeaUser = ref.watch(isTeaUserProvider);
     final isTablet = ResponsiveBreakpoints.isTabletOrLarger(context);
+
+    // Dedicated 3-module terminal for Tea department (Transfers, Storage, Dispatch)
+    if (isTeaUser) {
+      if (isTablet) {
+        return _buildTeaTabletLayout(context);
+      }
+      return _buildTeaMobileLayout(context);
+    }
+
     if (isTablet) {
       return _buildTabletLayout(context);
     }
     return _buildMobileLayout(context);
+  }
+
+  // ─── TEA TABLET LAYOUT: 3 Modules in Navigation Rail ────────────────────────
+  Widget _buildTeaTabletLayout(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: _buildAppBar(isTablet: true, isTeaUser: true),
+      body: AmbientBackground(
+        child: Row(
+          children: [
+            _buildTeaCompactRail(),
+            const VerticalDivider(width: 1, thickness: 1, color: AppColors.glassBorder),
+            Expanded(
+              child: IndexedStack(
+                index: _teaCurrentIndex,
+                children: _teaScreens,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeaCompactRail() {
+    return Container(
+      width: 78,
+      color: const Color(0xF00A0F1D),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.eco_rounded, size: 12, color: Color(0xFF10B981)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'TEA',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  for (int i = 0; i < _teaNav.length; i++)
+                    _buildTeaRailItem(_teaNav[i], isSelected: _teaCurrentIndex == i, index: i),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeaRailItem(_PrimaryNavItem item, {required bool isSelected, required int index}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: InkWell(
+        onTap: () => setState(() => _teaCurrentIndex = index),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? item.accent.withValues(alpha: 0.18) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: isSelected ? Border.all(color: item.accent.withValues(alpha: 0.4), width: 1) : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(isSelected ? item.selectedIcon : item.icon, size: 22, color: isSelected ? item.accent : AppColors.textMuted),
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? item.accent : AppColors.textMuted,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ─── TABLET LAYOUT: Compact NavigationRail + content ───────────────────────
@@ -482,14 +650,99 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  // ─── MOBILE LAYOUT: Bottom navigation bar ────────────────────────────────────
+  // ─── TEA PHONE-ONLY LAYOUT: Transfers, Storage, Dispatch ONLY ───────────────
+  Widget _buildTeaMobileLayout(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: _buildAppBar(isTablet: false, isTeaUser: true),
+      body: AmbientBackground(
+        child: IndexedStack(
+          index: _teaCurrentIndex,
+          children: _teaScreens,
+        ),
+      ),
+      bottomNavigationBar: _buildTeaBottomNav(),
+    );
+  }
+
+  Widget _buildTeaBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xF2020617),
+        border: Border(top: BorderSide(color: AppColors.glassBorder)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  for (int i = 0; i < _teaNav.length; i++)
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _teaCurrentIndex = i),
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: _teaCurrentIndex == i ? _teaNav[i].accent.withValues(alpha: 0.15) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _teaCurrentIndex == i ? _teaNav[i].selectedIcon : _teaNav[i].icon,
+                                size: 20,
+                                color: _teaCurrentIndex == i ? _teaNav[i].accent : AppColors.textMuted,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _teaNav[i].label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: _teaCurrentIndex == i ? FontWeight.w700 : FontWeight.w500,
+                                  color: _teaCurrentIndex == i ? _teaNav[i].accent : AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              const MapleProFooter(compact: true, padding: EdgeInsets.symmetric(vertical: 2)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── STANDARD MOBILE LAYOUT: Bottom navigation bar ──────────────────────────
   Widget _buildMobileLayout(BuildContext context) {
     final primaryIndex = _primaryNav.indexWhere((n) => n.screenIndex == _currentIndex);
     final bottomIndex = primaryIndex >= 0 ? primaryIndex : _primaryNav.length;
 
     return Scaffold(
       key: _scaffoldKey,
-      appBar: _buildAppBar(isTablet: false),
+      appBar: _buildAppBar(isTablet: false, isTeaUser: false),
       body: AmbientBackground(
         child: IndexedStack(
           index: _currentIndex,
@@ -516,12 +769,19 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (int i = 0; i < _primaryNav.length; i++)
-                Expanded(child: _buildBottomNavItem(_primaryNav[i], isSelected: bottomIndex == i, index: i)),
-              Expanded(child: _buildBottomMoreItem(bottomIndex == _primaryNav.length)),
+              Row(
+                children: [
+                  for (int i = 0; i < _primaryNav.length; i++)
+                    Expanded(child: _buildBottomNavItem(_primaryNav[i], isSelected: bottomIndex == i, index: i)),
+                  Expanded(child: _buildBottomMoreItem(bottomIndex == _primaryNav.length)),
+                ],
+              ),
+              const SizedBox(height: 2),
+              const MapleProFooter(compact: true, padding: EdgeInsets.symmetric(vertical: 2)),
             ],
           ),
         ),
@@ -601,7 +861,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   // ─── APP BAR ─────────────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar({required bool isTablet}) {
+  PreferredSizeWidget _buildAppBar({required bool isTablet, bool isTeaUser = false}) {
     return PreferredSize(
       preferredSize: const Size.fromHeight(60),
       child: Container(
@@ -666,101 +926,82 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                           ),
                           SizedBox(width: isNarrow ? 6 : 8),
                           ConnectionStatusIndicator(compact: isNarrow),
-                          ValueListenableBuilder<AppVersionInfo?>(
-                            valueListenable: AppUpdateService.instance.updateAvailableNotifier,
-                            builder: (context, update, _) {
-                              if (update == null) return const SizedBox.shrink();
-                              return Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: InkWell(
-                                  onTap: () => AppUpdateService.instance.showUpdateDialog(context, update),
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 0.3),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: AppColors.primaryLight),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.primary.withValues(alpha: 0.4),
-                                          blurRadius: 8,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.system_update_rounded, size: 14, color: AppColors.primaryLight),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Update v${update.versionName}',
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                                        ),
-                                      ],
-                                    ),
+                          if (isTeaUser) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.eco_rounded, size: 10, color: Color(0xFF10B981)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'TEA',
+                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
                                   ),
-                                ),
-                              );
-                            },
-                          ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                     const Spacer(),
                     // Current screen badge (tablet/desktop only)
-                    if (isTablet && width >= 540) ...[
-                      _buildCurrentScreenBadge(),
+                    if (isTablet && width >= 680) ...[
+                      _buildCurrentScreenBadge(isTeaUser: isTeaUser),
                       const SizedBox(width: 4),
                     ],
-                    // MIRA AI Assistant Quick Launch
-                    IconButton(
-                      icon: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF06B6D4), Color(0xFF6366F1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF06B6D4).withValues(alpha: 0.45),
-                              blurRadius: 8,
-                              spreadRadius: 1,
+                    // MIRA AI Assistant Quick Launch (Hidden for Tea user)
+                    if (!isTeaUser)
+                      IconButton(
+                        icon: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF06B6D4), Color(0xFF6366F1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF06B6D4).withValues(alpha: 0.45),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.auto_awesome, size: 15, color: Colors.white),
                         ),
-                        child: const Icon(Icons.auto_awesome, size: 15, color: Colors.white),
+                        tooltip: 'MIRA AI Brain',
+                        splashRadius: 22,
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MiraPage()),
+                        ),
                       ),
-                      tooltip: 'MIRA AI Brain',
-                      splashRadius: 22,
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MiraPage()),
-                      ),
-                    ),
                     NotificationBellIcon(onNavigateToReference: _handleNotificationNavigation),
-                    IconButton(
-                      icon: const Icon(Icons.system_update_rounded, size: 20, color: AppColors.primaryLight),
-                      tooltip: 'Check Software Update',
-                      splashRadius: 20,
-                      onPressed: () => AppUpdateService.instance.checkAndPromptUpdate(context: context, forceManual: true),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.shield_outlined, size: 20, color: Color(0xFF10B981)),
-                      tooltip: 'Security Center',
-                      splashRadius: 20,
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityCenterScreen())),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.settings_outlined, size: 20, color: AppColors.textSecondary),
-                      tooltip: 'Settings',
-                      splashRadius: 20,
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                    ),
+                    if (!isNarrow && !isTeaUser)
+                      IconButton(
+                        icon: const Icon(Icons.shield_outlined, size: 20, color: Color(0xFF10B981)),
+                        tooltip: 'Security Center',
+                        splashRadius: 20,
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityCenterScreen())),
+                      ),
+                    if (!isNarrow && !isTeaUser)
+                      IconButton(
+                        icon: const Icon(Icons.settings_outlined, size: 20, color: AppColors.textSecondary),
+                        tooltip: 'Settings',
+                        splashRadius: 20,
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                      ),
                     IconButton(
                       icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.primaryLight),
                       tooltip: 'Sync Realtime Data',
@@ -783,7 +1024,34 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  Widget _buildCurrentScreenBadge() {
+  Widget _buildCurrentScreenBadge({bool isTeaUser = false}) {
+    if (isTeaUser) {
+      final safeIdx = _teaCurrentIndex.clamp(0, _teaNav.length - 1);
+      final item = _teaNav[safeIdx];
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: item.accent.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: item.accent.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(item.selectedIcon, size: 12, color: item.accent),
+            const SizedBox(width: 4),
+            Text(
+              item.label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: item.accent,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final primary = _primaryNav.firstWhere(
       (n) => n.screenIndex == _currentIndex,
       orElse: () => const _PrimaryNavItem(screenIndex: -1, label: '', icon: Icons.apps_outlined, selectedIcon: Icons.apps_rounded),
@@ -889,6 +1157,7 @@ class _MoreMenuSheet extends StatelessWidget {
                 },
               ),
             ),
+            const MapleProFooter(compact: true, padding: EdgeInsets.only(bottom: 12)),
           ],
         ),
       ),

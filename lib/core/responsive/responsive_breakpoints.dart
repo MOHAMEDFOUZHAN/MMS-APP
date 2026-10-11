@@ -6,23 +6,23 @@ class ResponsiveBreakpoints {
   static const double tablet = 1200.0;
 
   static bool isMobile(BuildContext context) =>
-      MediaQuery.sizeOf(context).width < mobile;
+      MediaQuery.sizeOf(context).shortestSide < mobile;
 
   static bool isSmallTablet(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    return width >= mobile && width < smallTablet;
+    final shortest = MediaQuery.sizeOf(context).shortestSide;
+    return shortest >= mobile && shortest < smallTablet;
   }
 
   static bool isTablet(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    return width >= smallTablet && width < tablet;
+    final shortest = MediaQuery.sizeOf(context).shortestSide;
+    return shortest >= smallTablet && shortest < tablet;
   }
 
   static bool isLargeTablet(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= tablet;
+      MediaQuery.sizeOf(context).shortestSide >= tablet;
 
   static bool isTabletOrLarger(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= mobile;
+      MediaQuery.sizeOf(context).shortestSide >= mobile;
 
   static bool isLandscape(BuildContext context) =>
       MediaQuery.orientationOf(context) == Orientation.landscape;

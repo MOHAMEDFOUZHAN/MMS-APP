@@ -163,8 +163,8 @@ class _InvoiceTransferHubScreenState extends ConsumerState<InvoiceTransferHubScr
                         _buildMetricPill(
                           icon: Icons.cloud_done_rounded,
                           label: 'Database',
-                          value: 'Supabase Cloud',
-                          color: const Color(0xFF3ECF8E),
+                          value: 'Cloud PostgreSQL',
+                          color: const Color(0xFF10B981),
                         ),
                       ],
                     ),

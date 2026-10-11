@@ -1,3 +1,4 @@
+import 'notification_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -110,6 +111,20 @@ class AppUpdateService {
         debugPrint('>>> [AppUpdateService] UPDATE DETECTED! Returning remoteInfo');
         statusNotifier.value = 'New update available: v${remoteInfo.versionName} (Build ${remoteInfo.versionCode})';
         updateAvailableNotifier.value = remoteInfo;
+
+        // Trigger native Android status bar notification
+        try {
+          NotificationService.instance.showNotification(
+            id: 99999,
+            title: '🚀 Software Update Available',
+            body: 'A new application update (v${remoteInfo.versionName}) is available. Tap to install.',
+            payload: 'update:${remoteInfo.versionCode}',
+            channelId: NotificationService.channelSystem,
+          );
+        } catch (e) {
+          debugPrint('>>> [AppUpdateService] Could not fire native notification: $e');
+        }
+
         return remoteInfo;
       } else {
         debugPrint('>>> [AppUpdateService] Up to date (remote ${remoteInfo.versionCode} <= current $currentBuildNumber)');

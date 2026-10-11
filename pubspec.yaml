@@ -2,7 +2,7 @@ name: mms_app
 description: "Benchmark Material Management System (Benchmark MMS) - Mobile & Tablet App"
 publish_to: 'none'
 
-version: 1.0.14+17
+version: 1.0.22+25
 
 environment:
   sdk: ^3.8.1
@@ -56,3 +56,8 @@ flutter:
 
   assets:
     - assets/images/
+
+  fonts:
+    - family: Calama
+      fonts:
+        - asset: assets/fonts/Calama.ttf

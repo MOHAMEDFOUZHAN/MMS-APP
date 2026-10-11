@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
-import 'security_auditor_service.dart';
 import 'security_finding_model.dart';
 import 'security_history_service.dart';
 
@@ -40,16 +39,11 @@ class SecurityFixService {
     );
     await _historyService.saveAuditLog(log);
 
-    bool executionSuccess = false;
-
     try {
       if (finding.fixType == FixType.safeAutoFix) {
         // Execute client-level or API-level remediation
         if (finding.id == 'SEC-AUTH-003') {
           await _client.auth.refreshSession();
-          executionSuccess = true;
-        } else {
-          executionSuccess = true;
         }
       } else if (finding.fixType == FixType.reviewSql && finding.fixSql != null) {
         // In PostgreSQL, DDL commands like ALTER TABLE, DROP POLICY, CREATE POLICY
@@ -57,18 +51,13 @@ class SecurityFixService {
         // Try executing via client rpc if 'execute_security_patch' is provisioned
         try {
           await _client.rpc('execute_security_patch', params: {'p_sql': finding.fixSql!});
-          executionSuccess = true;
         } catch (_) {
           // If direct DDL RPC is restricted (standard for cloud Supabase without superuser function),
           // we record the SQL patch as staged for the administrator to review/copy.
-          executionSuccess = true;
         }
-      } else {
-        executionSuccess = true;
       }
     } catch (e) {
       debugPrint('Error applying fix for ${finding.id}: $e');
-      executionSuccess = false;
     }
 
     // 2. Post-fix Verification: Re-run the specific security probe!

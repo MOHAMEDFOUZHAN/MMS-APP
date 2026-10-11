@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/app_update_service.dart';
 import '../providers/owner_providers.dart';
 import 'owner_shell_screen.dart';
+import '../../shared/widgets/maple_pro_footer.dart';
 
 class OwnerLoginScreen extends ConsumerStatefulWidget {
   const OwnerLoginScreen({super.key});
@@ -477,6 +478,13 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                                           color: const Color(0xFF9CA3AF),
                                         ),
                                       ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Center(
+                                    child: MapleProFooter(
+                                      compact: true,
+                                      mapleColor: Color(0xFFF59E0B),
                                     ),
                                   ),
                                 ],

@@ -12,6 +12,7 @@ import 'owner_dashboard_screen.dart';
 import 'owner_login_screen.dart';
 import 'owner_reports_hub_screen.dart';
 import 'owner_settings_screen.dart';
+import '../../shared/widgets/maple_pro_footer.dart';
 
 class OwnerShellScreen extends ConsumerStatefulWidget {
   const OwnerShellScreen({super.key});
@@ -127,6 +128,7 @@ class _OwnerShellScreenState extends ConsumerState<OwnerShellScreen> {
   void _showMoreMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: const Color(0xFF111827),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -135,7 +137,7 @@ class _OwnerShellScreenState extends ConsumerState<OwnerShellScreen> {
       builder: (ctx) {
         final email = ref.read(ownerAuthNotifierProvider).userEmail ?? 'owner';
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -249,6 +251,8 @@ class _OwnerShellScreenState extends ConsumerState<OwnerShellScreen> {
                     _handleLogout(context);
                   },
                 ),
+                const SizedBox(height: 8),
+                const MapleProFooter(compact: true, padding: EdgeInsets.only(bottom: 8)),
               ],
             ),
           ),
@@ -324,7 +328,7 @@ class _OwnerShellScreenState extends ConsumerState<OwnerShellScreen> {
             const SizedBox(height: 10),
             _buildProfileRow('Role', 'OWNER (Full Executive Privileges)'),
             const SizedBox(height: 10),
-            _buildProfileRow('Server Authentication', 'Supabase Server Auth Verified'),
+            _buildProfileRow('Server Authentication', 'Encrypted Server Auth Verified'),
             const SizedBox(height: 10),
             _buildProfileRow('Permissions', 'ALL (owner.*, reports.*, rpc.*)'),
             const SizedBox(height: 10),
@@ -541,67 +545,76 @@ class _OwnerShellScreenState extends ConsumerState<OwnerShellScreen> {
                     color: Color(0xFF111827),
                     border: Border(top: BorderSide(color: Color(0xFF1F2937))),
                   ),
-                  child: BottomNavigationBar(
-                    currentIndex: () {
-                      // Map current index to 5 mobile tabs:
-                      // 0: Dashboard
-                      // 1: Analytics
-                      // 2: Reports
-                      // 4: Alerts
-                      // 3, 5, 6: More
-                      if (_currentIndex == 0) return 0;
-                      if (_currentIndex == 1) return 1;
-                      if (_currentIndex == 2) return 2;
-                      if (_currentIndex == 4) return 3;
-                      return 4; // More
-                    }(),
-                    onTap: (val) {
-                      if (val == 0) setState(() => _currentIndex = 0);
-                      if (val == 1) setState(() => _currentIndex = 1);
-                      if (val == 2) setState(() => _currentIndex = 2);
-                      if (val == 3) setState(() => _currentIndex = 4); // Alerts
-                      if (val == 4) {
-                        _showMoreMenu(context);
-                      }
-                    },
-                    backgroundColor: const Color(0xFF111827),
-                    type: BottomNavigationBarType.fixed,
-                    selectedItemColor: const Color(0xFFF59E0B),
-                    unselectedItemColor: const Color(0xFF9CA3AF),
-                    selectedFontSize: 11,
-                    unselectedFontSize: 10,
-                    items: [
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.dashboard_outlined, size: 20),
-                        activeIcon: Icon(Icons.dashboard_rounded, size: 22),
-                        label: 'Dashboard',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.trending_up_rounded, size: 20),
-                        activeIcon: Icon(Icons.trending_up_rounded, size: 22),
-                        label: 'Analytics',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.assessment_outlined, size: 20),
-                        activeIcon: Icon(Icons.assessment_rounded, size: 22),
-                        label: 'Reports',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.notifications_none_rounded, size: 20),
-                        activeIcon: Icon(Icons.notifications_active_rounded, size: 22),
-                        label: 'Alerts',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: const Icon(Icons.menu_rounded, size: 20),
-                        activeIcon: Icon(Icons.menu_open_rounded, size: 22, color: const Color(0xFFF59E0B)),
-                        label: () {
-                          if (_currentIndex == 3) return 'Activity';
-                          if (_currentIndex == 5) return 'Security';
-                          if (_currentIndex == 6) return 'Settings';
-                          return 'More';
-                        }(),
-                      ),
-                    ],
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        BottomNavigationBar(
+                          currentIndex: () {
+                            // Map current index to 5 mobile tabs:
+                            // 0: Dashboard
+                            // 1: Analytics
+                            // 2: Reports
+                            // 4: Alerts
+                            // 3, 5, 6: More
+                            if (_currentIndex == 0) return 0;
+                            if (_currentIndex == 1) return 1;
+                            if (_currentIndex == 2) return 2;
+                            if (_currentIndex == 4) return 3;
+                            return 4; // More
+                          }(),
+                          onTap: (val) {
+                            if (val == 0) setState(() => _currentIndex = 0);
+                            if (val == 1) setState(() => _currentIndex = 1);
+                            if (val == 2) setState(() => _currentIndex = 2);
+                            if (val == 3) setState(() => _currentIndex = 4); // Alerts
+                            if (val == 4) {
+                              _showMoreMenu(context);
+                            }
+                          },
+                          backgroundColor: const Color(0xFF111827),
+                          type: BottomNavigationBarType.fixed,
+                          selectedItemColor: const Color(0xFFF59E0B),
+                          unselectedItemColor: const Color(0xFF9CA3AF),
+                          selectedFontSize: 11,
+                          unselectedFontSize: 10,
+                          items: [
+                            const BottomNavigationBarItem(
+                              icon: Icon(Icons.dashboard_outlined, size: 20),
+                              activeIcon: Icon(Icons.dashboard_rounded, size: 22),
+                              label: 'Dashboard',
+                            ),
+                            const BottomNavigationBarItem(
+                              icon: Icon(Icons.trending_up_rounded, size: 20),
+                              activeIcon: Icon(Icons.trending_up_rounded, size: 22),
+                              label: 'Analytics',
+                            ),
+                            const BottomNavigationBarItem(
+                              icon: Icon(Icons.assessment_outlined, size: 20),
+                              activeIcon: Icon(Icons.assessment_rounded, size: 22),
+                              label: 'Reports',
+                            ),
+                            const BottomNavigationBarItem(
+                              icon: Icon(Icons.notifications_none_rounded, size: 20),
+                              activeIcon: Icon(Icons.notifications_active_rounded, size: 22),
+                              label: 'Alerts',
+                            ),
+                            BottomNavigationBarItem(
+                              icon: const Icon(Icons.menu_rounded, size: 20),
+                              activeIcon: Icon(Icons.menu_open_rounded, size: 22, color: const Color(0xFFF59E0B)),
+                              label: () {
+                                if (_currentIndex == 3) return 'Activity';
+                                if (_currentIndex == 5) return 'Security';
+                                if (_currentIndex == 6) return 'Settings';
+                                return 'More';
+                              }(),
+                            ),
+                          ],
+                        ),
+                        const MapleProFooter(compact: true, padding: EdgeInsets.symmetric(vertical: 2)),
+                      ],
+                    ),
                   ),
                 ),
         );

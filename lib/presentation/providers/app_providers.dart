@@ -157,6 +157,47 @@ final hasPermissionProvider = Provider.autoDispose.family<bool, String>((ref, pe
   return profile.hasPermission(perm);
 });
 
+final isTeaUserProvider = Provider<bool>((ref) {
+  // 1. In-memory auth user (sync, 0ms latency)
+  final user = ref.watch(currentUserProvider);
+  if (user != null) {
+    final email = (user.email ?? '').toLowerCase();
+    final username = email.split('@').first;
+    final role = user.userMetadata?['role']?.toString().toUpperCase();
+    final metaUsername = user.userMetadata?['username']?.toString().toLowerCase();
+    if (email == 'bm@benchmarkmms.com' ||
+        username == 'bm' ||
+        username == 'tea' ||
+        username == 'tea123' ||
+        metaUsername == 'bm' ||
+        metaUsername == 'tea' ||
+        metaUsername == 'tea123' ||
+        role == 'TEA_USER' ||
+        role == 'TEA') {
+      return true;
+    }
+  }
+
+  // 2. AuthNotifier state
+  final authEmail = (ref.watch(authNotifierProvider).userEmail ?? '').toLowerCase();
+  if (authEmail.startsWith('bm@') ||
+      authEmail == 'bm' ||
+      authEmail.startsWith('tea@') ||
+      authEmail == 'tea' ||
+      authEmail.startsWith('tea123@') ||
+      authEmail == 'tea123') {
+    return true;
+  }
+
+  // 3. UserProfile from DB
+  final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+  if (profile != null && profile.isTeaUser) {
+    return true;
+  }
+
+  return false;
+});
+
 // ── Dashboard Provider ─────────────────────────────────────────────────────
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummaryModel>((ref) async {
   final repo = ref.watch(dashboardRepositoryProvider);
@@ -358,7 +399,7 @@ final invoiceDetailsProvider = FutureProvider.autoDispose.family<InvoiceModel, i
 // ── Batches Provider ───────────────────────────────────────────────────────
 final batchesListProvider = FutureProvider.autoDispose.family<List<BatchModel>, BatchesFilter>((ref, filter) async {
   final repo = ref.watch(batchesRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   return repo.fetchBatches(
     viewMode: filter.viewMode,
     search: filter.search,
@@ -370,7 +411,7 @@ final batchesListProvider = FutureProvider.autoDispose.family<List<BatchModel>, 
 
 final activeBatchesProvider = FutureProvider.autoDispose.family<List<BatchModel>, dynamic>((ref, param) async {
   final repo = ref.watch(batchesRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   final cat = isTeaUser ? 'TEA' : null;
   if (param is BatchesFilter) {
     return repo.fetchActiveBatches(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
@@ -382,7 +423,7 @@ final activeBatchesProvider = FutureProvider.autoDispose.family<List<BatchModel>
 
 final inwardHistoryProvider = FutureProvider.autoDispose.family<List<BatchModel>, dynamic>((ref, param) async {
   final repo = ref.watch(batchesRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   final cat = isTeaUser ? 'TEA' : null;
   if (param is BatchesFilter) {
     return repo.fetchInwardHistory(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
@@ -395,7 +436,7 @@ final inwardHistoryProvider = FutureProvider.autoDispose.family<List<BatchModel>
 // ── Dispatches Provider ────────────────────────────────────────────────────
 final dispatchesListProvider = FutureProvider.autoDispose.family<List<DispatchModel>, dynamic>((ref, param) async {
   final repo = ref.watch(dispatchesRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   final cat = isTeaUser ? 'TEA' : null;
   if (param is DispatchesFilter) {
     return repo.fetchDispatches(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
@@ -408,20 +449,20 @@ final dispatchesListProvider = FutureProvider.autoDispose.family<List<DispatchMo
 // ── Storage Products Provider ──────────────────────────────────────────────
 final storageProductsListProvider = FutureProvider.autoDispose.family<List<StorageProductModel>, String?>((ref, query) async {
   final repo = ref.watch(storageProductsRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   return repo.searchStorageProducts(query, category: isTeaUser ? 'TEA' : null);
 });
 
 final dispatchAvailableProductsProvider = FutureProvider.autoDispose.family<List<DispatchAvailableProductModel>, String?>((ref, query) async {
   final repo = ref.watch(storageProductsRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   return repo.getDispatchAvailableProducts(search: query, category: isTeaUser ? 'TEA' : null);
 });
 
 // ── Transfers Provider ─────────────────────────────────────────────────────
 final transfersListProvider = FutureProvider.autoDispose.family<List<TransferModel>, dynamic>((ref, param) async {
   final repo = ref.watch(transfersRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   final cat = isTeaUser ? 'TEA' : null;
   if (param is TransfersFilter) {
     return repo.fetchTransfers(search: param.search, fromDate: param.fromDate, toDate: param.toDate, category: cat);
@@ -433,7 +474,7 @@ final transfersListProvider = FutureProvider.autoDispose.family<List<TransferMod
 
 final transferMaterialsProvider = FutureProvider.autoDispose<List<MaterialModel>>((ref) async {
   final repo = ref.watch(transfersRepositoryProvider);
-  final isTeaUser = ref.watch(currentUserProfileProvider).valueOrNull?.isTeaUser ?? false;
+  final isTeaUser = ref.watch(isTeaUserProvider);
   return repo.fetchTransferMaterials(category: isTeaUser ? 'TEA' : null);
 });
 

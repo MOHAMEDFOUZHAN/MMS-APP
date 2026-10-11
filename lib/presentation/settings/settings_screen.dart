@@ -12,6 +12,7 @@ import '../providers/app_providers.dart';
 import '../providers/inventory_settings_provider.dart';
 import '../security/security_center_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../shared/widgets/maple_pro_footer.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -159,7 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final res = await SupabaseConfig.client.from('materials').select('id').limit(1);
       setState(() {
-        _connectionStatus = 'Connected to Supabase PostgreSQL (${res.isNotEmpty ? "Healthy" : "Online"})';
+        _connectionStatus = 'Connected to Cloud PostgreSQL (${res.isNotEmpty ? "Healthy" : "Online"})';
       });
     } catch (e) {
       setState(() {
@@ -572,7 +573,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Supabase PostgreSQL 15',
+                            'Cloud PostgreSQL 15 Engine',
                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                           ),
                           const SizedBox(height: 2),
@@ -641,7 +642,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Supabase Security Center',
+                          'Cloud Security & Audit Center',
                           style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         const SizedBox(height: 2),
@@ -749,10 +750,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'GLASS & NEON 3.0 • Mobile & Tablet Production Edition\nAtomic PostgreSQL FIFO Engine • Supabase Realtime',
+                    'GLASS & NEON 3.0 • Mobile & Tablet Production Edition\nAtomic PostgreSQL FIFO Engine',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                   ),
+                  const SizedBox(height: 12),
+                  const MapleProFooter(compact: true),
                 ],
               ),
             ),

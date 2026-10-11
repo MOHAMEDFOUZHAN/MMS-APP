@@ -36,7 +36,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
   final _nameFocusNode = FocusNode();
 
   DateTime _dispatchDate = DateTime.now();
-  String _selectedDepartment = 'Dispatch';
+  late String _selectedDepartment = ref.read(isTeaUserProvider) ? 'Tea' : 'Dispatch';
 
   // Storage Product Identity (Independent of Material Master)
   int? _storageProductId;
@@ -89,7 +89,8 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
     setState(() => _isLoadingProducts = true);
     try {
       final repo = ref.read(storageProductsRepositoryProvider);
-      final products = await repo.getDispatchAvailableProducts();
+      final isTeaUser = ref.read(isTeaUserProvider);
+      final products = await repo.getDispatchAvailableProducts(category: isTeaUser ? 'TEA' : null);
       if (mounted) {
         setState(() {
           _availableProducts = products;
@@ -378,13 +379,14 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
 
     try {
       final repo = ref.read(dispatchesRepositoryProvider);
+      final isTeaUser = ref.read(isTeaUserProvider);
       if (_isEditMode) {
         await repo.updateDispatch(
           dispatchId: widget.existingDispatch!.id,
           storageProductId: _storageProductId,
           materialCode: TextStandardizer.normalizeCode(_productCode),
           product: TextStandardizer.normalizeBusinessText(_productName.isNotEmpty ? _productName : _productCode),
-          category: 'Finished Goods',
+          category: isTeaUser ? 'TEA' : 'Finished Goods',
           grade: _grade,
           quantity: qty,
           returnQuantity: retQty,
@@ -399,7 +401,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
           storageProductId: _storageProductId,
           materialCode: TextStandardizer.normalizeCode(_productCode),
           product: TextStandardizer.normalizeBusinessText(_productName.isNotEmpty ? _productName : _productCode),
-          category: 'Finished Goods',
+          category: isTeaUser ? 'TEA' : 'Finished Goods',
           grade: _grade,
           quantity: qty,
           returnQuantity: retQty,

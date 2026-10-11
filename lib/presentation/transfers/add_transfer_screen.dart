@@ -171,6 +171,25 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
       return;
     }
 
+    // Tea account category validation (Requirement 5)
+    final isTeaUser = ref.read(isTeaUserProvider);
+    if (isTeaUser) {
+      final availableTeaMaterials = ref.read(transferMaterialsProvider).valueOrNull ?? [];
+      final isAllowedTea = availableTeaMaterials.any(
+        (m) => m.materialCode.toUpperCase() == _selectedCode.toUpperCase() && m.category.toUpperCase() == 'TEA',
+      );
+      if (!isAllowedTea && availableTeaMaterials.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Access Denied: Material "$_selectedCode" does not belong to the authorized TEA category.'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
     // Check total available stock across all lots
     final totalAvail = _totalAvailableStock;
     if (_outward > totalAvail) {

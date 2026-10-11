@@ -21,8 +21,12 @@ class UserProfileModel {
 
   bool get isOwner => role.toUpperCase() == 'OWNER' || permissions.contains('owner.*');
   bool get isAdmin => role.toUpperCase() == 'ADMIN' || isOwner;
-  bool get isManager => role.toUpperCase() == 'MANAGER' || isAdmin;
-  bool get isTeaUser => role.toUpperCase() == 'TEA_USER' || role.toUpperCase() == 'TEA' || username.toLowerCase() == 'bm';
+  bool get isTeaUser =>
+      role.toUpperCase() == 'TEA_USER' ||
+      role.toUpperCase() == 'TEA' ||
+      username.toLowerCase() == 'bm' ||
+      username.toLowerCase() == 'tea' ||
+      username.toLowerCase() == 'tea123';
 
   bool hasPermission(String perm) {
     if (isOwner || isAdmin) return true;
