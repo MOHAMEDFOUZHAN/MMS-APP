@@ -38,6 +38,13 @@ class AuthRepository {
         trimmed == 'bm@benchmarkmms.com') {
       return 'bm@benchmarkmms.com';
     }
+    if (trimmed == 'chocolate' ||
+        trimmed == 'cho' ||
+        trimmed == 'choco' ||
+        trimmed == 'chocolate@benchmarkmms.com' ||
+        trimmed.startsWith('chocolate@')) {
+      return 'chocolate@benchmarkmms.com';
+    }
     if (trimmed.contains('@')) {
       return trimmed;
     }
@@ -50,10 +57,14 @@ class AuthRepository {
   }) async {
     try {
       final email = mapUsernameToEmail(usernameOrEmail);
+      final trimmedPass = password.trim();
       final effectivePassword =
-          (email == 'bm@benchmarkmms.com' && password.trim() == 'tea')
+          (email == 'bm@benchmarkmms.com' && trimmedPass == 'tea')
               ? 'tea123'
-              : password;
+              : (email == 'chocolate@benchmarkmms.com' &&
+                      (trimmedPass == 'cho' || trimmedPass == 'chocolate'))
+                  ? 'cho123'
+                  : password;
       final response = await _client.auth.signInWithPassword(
         email: email,
         password: effectivePassword,

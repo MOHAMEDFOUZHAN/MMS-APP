@@ -156,7 +156,7 @@ class _OwnerSettingsScreenState extends ConsumerState<OwnerSettingsScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF111827),
         title: Text(
-          'Owner Settings & Configurations',
+          'Management Settings & Configurations',
           style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),

@@ -5,6 +5,7 @@ import 'package:mms_app/core/services/connection_service.dart';
 import 'package:mms_app/data/models/user_profile_model.dart';
 import 'package:mms_app/presentation/providers/app_providers.dart';
 import 'package:mms_app/presentation/shell/home_shell.dart';
+import 'package:mms_app/presentation/transfers/transfers_screen.dart';
 
 class MockConnectionService extends StateNotifier<ConnectionStatus> implements ConnectionService {
   MockConnectionService()
@@ -53,8 +54,34 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // Initially Transfers is selected
-    expect(find.text('New Transfer'), findsOneWidget);
+    // Dashboard must NOT exist for Tea user
+    expect(find.widgetWithText(InkWell, 'Dashboard'), findsNothing);
+
+    // Initially Transfer tab is selected (screenIndex: 0)
+    debugPrint('Checking Transfer tab...');
+    final transferTab = find.widgetWithText(InkWell, 'Transfer');
+    expect(transferTab, findsOneWidget);
+
+    // Transfer screen is visible - New Transfer button is hidden for view-only Tea user
+    expect(find.text('New Transfer'), findsNothing);
+    expect(find.byType(TransfersScreen), findsOneWidget);
+
+    // Tap Material Received
+    debugPrint('Tapping Material Received tab...');
+    final matRecTab = find.widgetWithText(InkWell, 'Material Received');
+    expect(matRecTab, findsOneWidget);
+    await tester.tap(matRecTab);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Tap Consume
+    debugPrint('Tapping Consume tab...');
+    final consumeTab = find.widgetWithText(InkWell, 'Consume');
+    expect(consumeTab, findsOneWidget);
+    await tester.tap(consumeTab);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Record Material Taken'), findsOneWidget);
 
     // Tap Storage
     debugPrint('Tapping Storage tab...');
@@ -78,14 +105,13 @@ void main() {
     // Check if Dispatch screen is visible
     expect(find.text('Record Dispatch'), findsOneWidget);
 
-    // Tap back to Transfers
-    debugPrint('Tapping back to Transfers tab...');
-    final transfersTab = find.widgetWithText(InkWell, 'Transfers');
-    expect(transfersTab, findsOneWidget);
-    await tester.tap(transfersTab);
+    // Tap back to Transfer
+    debugPrint('Tapping back to Transfer tab...');
+    await tester.tap(transferTab);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('New Transfer'), findsOneWidget);
+    expect(find.text('New Transfer'), findsNothing);
+    expect(find.byType(TransfersScreen), findsOneWidget);
   });
 }

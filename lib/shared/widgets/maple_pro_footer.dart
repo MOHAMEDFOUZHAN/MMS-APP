@@ -22,11 +22,13 @@ class MapleProFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: padding,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
           if (showLogo) ...[
             Container(
               width: compact ? 18 : 22,
@@ -65,6 +67,7 @@ class MapleProFooter extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }

@@ -141,6 +141,26 @@ async def parse_synchronous(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/ocr/scan-weight")
+@app.post("/api/ocr/weighing-machine")
+async def scan_weight(file: UploadFile = File(...)):
+    """Dedicated endpoint for Chocolate Weighing Machine OCR (RapidOCR + ONNX Runtime).
+    Reads numeric weight (including decimal positions and unit) from LED indicators (e.g. Baykon BX27).
+    Conforms to Master RapidOCR + ONNX Runtime architecture specification (Section 10).
+    """
+    try:
+        from weighing_machine_ocr import process_weighing_machine_image
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Uploaded image is empty.")
+
+        result = process_weighing_machine_image(content)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Weighing machine OCR error: {e}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api:app", host=config.host, port=config.port, reload=config.debug)

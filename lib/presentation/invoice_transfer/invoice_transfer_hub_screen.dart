@@ -42,6 +42,35 @@ class _InvoiceTransferHubScreenState extends ConsumerState<InvoiceTransferHubScr
 
   @override
   Widget build(BuildContext context) {
+    final isChocolate = ref.watch(isChocolateUserProvider);
+    if (isChocolate) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Access Denied')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.block_rounded, size: 48, color: AppColors.danger),
+                SizedBox(height: 16),
+                Text(
+                  'Access Denied',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'This section is not accessible for Chocolate department users.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final invoicesAsync = ref.watch(invoicesListProvider(null));
     final transfersAsync = ref.watch(transfersListProvider(null));
 

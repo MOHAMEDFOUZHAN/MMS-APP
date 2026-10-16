@@ -12,6 +12,7 @@ import '../../core/theme/glass_widgets.dart';
 import '../../core/utils/expiry_helper.dart';
 import '../../data/models/batch_model.dart';
 import '../../data/models/storage_product_model.dart';
+import '../../data/models/chocolate_ocr_ledger_model.dart';
 import '../../data/repositories/batches_repository.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
 import '../../shared/widgets/empty_state_widget.dart';
@@ -19,11 +20,12 @@ import '../../shared/widgets/uom_dropdown.dart';
 import '../../core/services/pdf_export_service.dart';
 import '../providers/app_providers.dart';
 import '../providers/inventory_settings_provider.dart';
+import '../providers/chocolate_ocr_providers.dart';
 
 /// Unified Storage Management Module
 /// Represents Finished Goods / Production Batch Inventory.
 /// Provides a unified screen with view filtering:
-/// [ In Stock ] [ All History ] [ Depleted ]
+/// [ In Stock ] [ All History ] [ Out of Stock ]
 class StorageScreen extends ConsumerStatefulWidget {
   const StorageScreen({super.key});
 
@@ -110,23 +112,56 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final productNameCtrl = TextEditingController();
     final qtyCtrl = TextEditingController();
     final isTea = ref.read(isTeaUserProvider);
-    final deptCtrl = TextEditingController(text: isTea ? 'Tea' : 'Finished Goods');
+    final isChoc = ref.read(isChocolateUserProvider);
+    final deptCtrl = TextEditingController(text: isChoc ? 'Chocolate' : (isTea ? 'Tea' : 'Finished Goods'));
+    final rackCtrl = TextEditingController();
     final codeFocusNode = FocusNode();
     final nameFocusNode = FocusNode();
     String selectedUom = 'kg';
     String selectedGrade = 'STANDARD';
     final formKey = GlobalKey<FormState>();
 
+    int? selectedOcrId;
+    List<ChocolateOcrLedgerModel> confirmedOcrScans = [];
+    if (isChoc) {
+      try {
+        confirmedOcrScans = await ref.read(chocolateOcrRepositoryProvider).fetchLedger();
+      } catch (e) {
+        debugPrint('Error loading chocolate OCR ledger: $e');
+      }
+    }
+
     // Pre-load existing storage products for instant two-way autocomplete
     List<StorageProductModel> existingProducts = [];
     try {
       existingProducts = await ref.read(storageProductsRepositoryProvider).searchStorageProducts(
             null,
-            category: isTea ? 'TEA' : null,
+            category: isChoc ? 'CHOCOLATE' : (isTea ? 'TEA' : null),
           );
     } catch (e) {
       debugPrint('Error loading storage products: $e');
     }
+
+    // If Chocolate, integrate confirmed OCR scans into available products list
+    if (isChoc) {
+      for (final scan in confirmedOcrScans) {
+        if (!existingProducts.any((p) => p.productName.trim().toLowerCase() == scan.description.trim().toLowerCase())) {
+          existingProducts.add(StorageProductModel(
+            id: 0,
+            productCode: scan.productCode,
+            productName: scan.description,
+            uom: scan.unit.toLowerCase(),
+            grade: 'STANDARD',
+            category: 'CHOCOLATE',
+            createdAt: scan.confirmedAt,
+            updatedAt: scan.confirmedAt,
+          ));
+        }
+      }
+    }
+
+    // Default sorting: Alphabetical by product name (Requirement 3)
+    existingProducts.sort((a, b) => a.productName.toLowerCase().compareTo(b.productName.toLowerCase()));
 
     if (!mounted) return;
     await showDialog(
@@ -194,11 +229,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Add Storage Batch',
+                          isChoc ? 'Add Rack Batch' : 'Add Storage Batch',
                           style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
                         ),
                         Text(
-                          'Finished Goods / Production Batch Inward',
+                          isChoc ? 'Finished Goods / Production Rack Inward' : 'Finished Goods / Production Batch Inward',
                           style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
                         ),
                       ],
@@ -215,6 +250,70 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Confirmed OCR Scan Quick Selector (Requirement 2)
+                        if (isChoc && confirmedOcrScans.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.35)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.document_scanner_rounded, size: 16, color: Color(0xFFF59E0B)),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Auto-Fill from Confirmed OCR Scan',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<int>(
+                                  value: selectedOcrId,
+                                  isExpanded: true,
+                                  dropdownColor: const Color(0xFF0F172A),
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    hintText: 'Select confirmed OCR scan...',
+                                    hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  items: confirmedOcrScans.map((scan) {
+                                    return DropdownMenuItem<int>(
+                                      value: scan.id,
+                                      child: Text(
+                                        '${scan.description} — ${scan.displayQuantity} (${scan.formattedDate})',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (ocrId) {
+                                    if (ocrId != null) {
+                                      final scan = confirmedOcrScans.firstWhere((s) => s.id == ocrId);
+                                      setDialogState(() {
+                                        selectedOcrId = scan.id;
+                                        productNameCtrl.text = scan.description;
+                                        productCodeCtrl.text = scan.productCode;
+                                        qtyCtrl.text = QuantityFormatter.formatClean(scan.quantity);
+                                        selectedUom = scan.unit.toLowerCase();
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         // Inward Date & Time Row
                         Row(
                           children: [
@@ -350,81 +449,109 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // PRODUCT CODE FIELD (Auto-lookup + Free input for new products)
-                        Text('Product Code *', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                        const SizedBox(height: 6),
-                        RawAutocomplete<StorageProductModel>(
-                          textEditingController: productCodeCtrl,
-                          focusNode: codeFocusNode,
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text.isEmpty) {
-                              return const Iterable<StorageProductModel>.empty();
-                            }
-                            final q = textEditingValue.text.trim().toLowerCase();
-                            return existingProducts.where(
-                              (p) => p.productCode.toLowerCase().contains(q) || p.productName.toLowerCase().contains(q),
-                            );
-                          },
-                          displayStringForOption: (StorageProductModel option) => option.productCode,
-                          onSelected: (StorageProductModel selection) {
-                            productCodeCtrl.text = selection.productCode;
-                            productNameCtrl.text = selection.productName;
-                            if (selection.uom.isNotEmpty) {
-                              setDialogState(() => selectedUom = selection.uom.toLowerCase());
-                            }
-                            if (selection.grade.isNotEmpty) {
-                              setDialogState(() => selectedGrade = selection.grade);
-                            }
-                          },
-                          optionsViewBuilder: (context, onSelected, options) {
-                            return Align(
-                              alignment: Alignment.topLeft,
-                              child: Material(
-                                elevation: 8,
-                                color: const Color(0xFF0F172A),
-                                borderRadius: BorderRadius.circular(8),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(maxHeight: 180, maxWidth: dialogWidth),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF0F172A),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppColors.glassBorder),
+                        // PRODUCT CODE FIELD (Auto-lookup + Free input for new products, hidden for Chocolate users)
+                        if (!isChoc) ...[
+                          Text('Product Code *', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                          const SizedBox(height: 6),
+                          RawAutocomplete<StorageProductModel>(
+                            textEditingController: productCodeCtrl,
+                            focusNode: codeFocusNode,
+                            optionsBuilder: (TextEditingValue textEditingValue) {
+                              if (textEditingValue.text.isEmpty) {
+                                return existingProducts;
+                              }
+                              final q = textEditingValue.text.trim().toLowerCase();
+                              return existingProducts.where(
+                                (p) => p.productCode.toLowerCase().contains(q) || p.productName.toLowerCase().contains(q),
+                              );
+                            },
+                            displayStringForOption: (StorageProductModel option) => option.productCode,
+                            onSelected: (StorageProductModel selection) {
+                              productCodeCtrl.text = selection.productCode;
+                              productNameCtrl.text = selection.productName;
+                              if (selection.uom.isNotEmpty) {
+                                setDialogState(() => selectedUom = selection.uom.toLowerCase());
+                              }
+                              if (selection.grade.isNotEmpty) {
+                                setDialogState(() => selectedGrade = selection.grade);
+                              }
+                              if (isChoc && qtyCtrl.text.trim().isEmpty) {
+                                final matchingScan = confirmedOcrScans.where((s) => s.description.trim().toLowerCase() == selection.productName.trim().toLowerCase()).firstOrNull;
+                                if (matchingScan != null) {
+                                  qtyCtrl.text = QuantityFormatter.formatClean(matchingScan.quantity);
+                                  setDialogState(() => selectedOcrId = matchingScan.id);
+                                }
+                              }
+                            },
+                            optionsViewBuilder: (context, onSelected, options) {
+                              if (options.isEmpty) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 8,
+                                    color: const Color(0xFF0F172A),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0F172A),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: AppColors.glassBorder),
+                                      ),
+                                      child: Text('No matching products found', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted)),
                                     ),
-                                    child: ListView.separated(
-                                      padding: EdgeInsets.zero,
-                                      shrinkWrap: true,
-                                      itemCount: options.length,
-                                      separatorBuilder: (_, __) => Divider(color: AppColors.glassBorder, height: 1),
-                                      itemBuilder: (context, index) {
-                                        final opt = options.elementAt(index);
-                                        return ListTile(
-                                          dense: true,
-                                          title: Text(opt.productCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryLight, fontSize: 13)),
-                                          subtitle: Text(opt.productName, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                                          onTap: () => onSelected(opt),
-                                        );
-                                      },
+                                  ),
+                                );
+                              }
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 8,
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(maxHeight: 180, maxWidth: dialogWidth),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0F172A),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: AppColors.glassBorder),
+                                      ),
+                                      child: ListView.separated(
+                                        padding: EdgeInsets.zero,
+                                        shrinkWrap: true,
+                                        itemCount: options.length,
+                                        separatorBuilder: (_, __) => Divider(color: AppColors.glassBorder, height: 1),
+                                        itemBuilder: (context, index) {
+                                          final opt = options.elementAt(index);
+                                          return ListTile(
+                                            dense: true,
+                                            title: Text(opt.productCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryLight, fontSize: 13)),
+                                            subtitle: Text(opt.productName, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                                            onTap: () => onSelected(opt),
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                            return TextFormField(
-                              controller: controller,
-                              focusNode: focusNode,
-                              decoration: const InputDecoration(
-                                hintText: 'e.g. FG-TEA-001 (Type or select)',
-                                prefixIcon: Icon(Icons.qr_code_rounded, size: 18, color: AppColors.primaryLight),
-                              ),
-                              onChanged: (val) => onProductCodeChanged(val),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Product Code required' : null,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 14),
+                              );
+                            },
+                            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                              return TextFormField(
+                                controller: controller,
+                                focusNode: focusNode,
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. FG-TEA-001 (Type or select)',
+                                  prefixIcon: Icon(Icons.qr_code_rounded, size: 18, color: AppColors.primaryLight),
+                                ),
+                                onChanged: (val) => onProductCodeChanged(val),
+                                validator: (v) => v == null || v.trim().isEmpty ? 'Product Code required' : null,
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                        ],
 
                         // PRODUCT NAME FIELD (Auto-lookup + Free input for new products)
                         Text('Product Name *', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
@@ -434,7 +561,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                           focusNode: nameFocusNode,
                           optionsBuilder: (TextEditingValue textEditingValue) {
                             if (textEditingValue.text.isEmpty) {
-                              return const Iterable<StorageProductModel>.empty();
+                              return existingProducts;
                             }
                             final q = textEditingValue.text.trim().toLowerCase();
                             return existingProducts.where(
@@ -451,8 +578,34 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                             if (selection.grade.isNotEmpty) {
                               setDialogState(() => selectedGrade = selection.grade);
                             }
+                            if (isChoc && qtyCtrl.text.trim().isEmpty) {
+                              final matchingScan = confirmedOcrScans.where((s) => s.description.trim().toLowerCase() == selection.productName.trim().toLowerCase()).firstOrNull;
+                              if (matchingScan != null) {
+                                qtyCtrl.text = QuantityFormatter.formatClean(matchingScan.quantity);
+                                setDialogState(() => selectedOcrId = matchingScan.id);
+                              }
+                            }
                           },
                           optionsViewBuilder: (context, onSelected, options) {
+                            if (options.isEmpty) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 8,
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0F172A),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.glassBorder),
+                                    ),
+                                    child: Text('No matching products found', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted)),
+                                  ),
+                                ),
+                              );
+                            }
                             return Align(
                               alignment: Alignment.topLeft,
                               child: Material(
@@ -477,7 +630,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                         return ListTile(
                                           dense: true,
                                           title: Text(opt.productName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 13)),
-                                          subtitle: Text(opt.productCode, style: const TextStyle(color: AppColors.primaryLight, fontSize: 11)),
+                                          subtitle: isChoc
+                                              ? null
+                                              : Text(opt.productCode, style: const TextStyle(color: AppColors.primaryLight, fontSize: 11)),
                                           onTap: () => onSelected(opt),
                                         );
                                       },
@@ -491,9 +646,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                             return TextFormField(
                               controller: controller,
                               focusNode: focusNode,
-                              decoration: const InputDecoration(
-                                hintText: 'e.g. Premium Green Tea Box (Type or select)',
-                                prefixIcon: Icon(Icons.inventory_2_outlined, size: 18, color: AppColors.primaryLight),
+                              decoration: InputDecoration(
+                                hintText: isChoc ? 'e.g. Dark Chocolate 500g (Type or select)' : 'e.g. Premium Green Tea Box (Type or select)',
+                                prefixIcon: const Icon(Icons.inventory_2_outlined, size: 18, color: AppColors.primaryLight),
                               ),
                               onChanged: (val) => onProductNameChanged(val),
                               validator: (v) => v == null || v.trim().isEmpty ? 'Product Name required' : null,
@@ -561,28 +716,43 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Department Selection
-                        Text('Department / Location', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          value: FactoryConstants.departments.contains(deptCtrl.text.trim()) ? deptCtrl.text.trim() : null,
-                          dropdownColor: const Color(0xFF0F172A),
-                          style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.apartment_rounded, size: 18),
-                            hintText: 'Select Department',
+                        if (!isChoc) ...[
+                          // RACK / SHELF LOCATION
+                          Text('Rack / Shelf Location', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: rackCtrl,
+                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                            decoration: const InputDecoration(
+                              hintText: 'e.g. RACK C-1, COLD SHELF B-2',
+                              prefixIcon: Icon(Icons.shelves, size: 18, color: Color(0xFFF59E0B)),
+                            ),
                           ),
-                          items: [
-                            const DropdownMenuItem(value: 'Finished Goods', child: Text('Finished Goods')),
-                            ...FactoryConstants.departments.map((d) => DropdownMenuItem(value: d, child: Text(d))),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setDialogState(() => deptCtrl.text = val);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
+
+                          // Department Selection
+                          Text('Department / Location', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: FactoryConstants.departments.contains(deptCtrl.text.trim()) ? deptCtrl.text.trim() : null,
+                            dropdownColor: const Color(0xFF0F172A),
+                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.apartment_rounded, size: 18),
+                              hintText: 'Select Department',
+                            ),
+                            items: [
+                              const DropdownMenuItem(value: 'Finished Goods', child: Text('Finished Goods')),
+                              ...FactoryConstants.departments.map((d) => DropdownMenuItem(value: d, child: Text(d))),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() => deptCtrl.text = val);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                        ],
 
                         // UOM & Quantity Received Row
                         Row(
@@ -622,6 +792,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                   const SizedBox(height: 6),
                                   UomDropdown(
                                     value: selectedUom,
+                                    labelText: null,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
                                     onChanged: (val) {
                                       if (val != null) {
                                         setDialogState(() => selectedUom = val);
@@ -655,13 +827,18 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.check_rounded, size: 18),
-                  label: const Text('Add Batch', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: Text(isChoc ? 'Add to Rack' : 'Add Batch', style: const TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
 
-                    final code = productCodeCtrl.text.trim();
                     final name = productNameCtrl.text.trim();
-                    if (code.isEmpty || name.isEmpty) return;
+                    if (name.isEmpty) return;
+
+                    String code = productCodeCtrl.text.trim();
+                    if (code.isEmpty) {
+                      final cleanName = name.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
+                      code = isChoc ? 'TRAY-${cleanName.isEmpty ? 'ITEM' : cleanName}' : (cleanName.isEmpty ? 'ITEM' : cleanName);
+                    }
 
                     final qty = double.parse(qtyCtrl.text.trim());
                     final scaffold = ScaffoldMessenger.of(context);
@@ -685,15 +862,17 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         batchDate: selectedDate,
                         materialCode: code,
                         description: name,
-                        category: isTea ? 'TEA' : 'Finished Goods',
+                        category: isChoc ? 'CHOCOLATE' : (isTea ? 'TEA' : 'Finished Goods'),
                         grade: selectedGrade,
                         department: deptCtrl.text.trim(),
                         uom: selectedUom,
+                        rackLocation: rackCtrl.text.trim().isNotEmpty ? rackCtrl.text.trim().toUpperCase() : null,
                         receivedQuantity: qty,
                         availableQuantity: qty, // Initial == Available at creation
                         expiryDate: selectedExpiryDate,
                         receivedDate: selectedDate,
                         receivedAt: fullDateTime,
+                        ocrLedgerId: selectedOcrId,
                         createdAt: fullDateTime,
                       );
 
@@ -707,7 +886,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
 
                       scaffold.showSnackBar(
                         SnackBar(
-                          content: Text('Batch ${newBatch.batchNo} created successfully! Available: ${QuantityFormatter.formatDualUnit(qty, selectedUom)}'),
+                          content: Text('${isChoc ? "Rack batch" : "Batch"} ${newBatch.batchNo} created successfully! Available: ${QuantityFormatter.formatDualUnit(qty, selectedUom)}'),
                           backgroundColor: AppColors.success,
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -740,6 +919,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final batchNoCtrl = TextEditingController(text: b.batchNo);
     final descCtrl = TextEditingController(text: b.description);
     final deptCtrl = TextEditingController(text: b.department);
+    final rackCtrl = TextEditingController(text: b.rackLocation ?? '');
     final recvCtrl = TextEditingController(text: b.receivedQuantity.toString());
     String selectedUom = b.uom;
     DateTime? editExpiryDate = b.expiryDate;
@@ -799,9 +979,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                           ),
                           child: Column(
                             children: [
-                              _infoRow('Product Code', b.materialCode.isNotEmpty ? b.materialCode : '-'),
+                              if (!ref.read(isChocolateUserProvider))
+                                _infoRow('Product Code', b.materialCode.isNotEmpty ? b.materialCode : '-'),
                               _infoRow('Date Inward', AppDateFormatter.format(b.receivedDate)),
-                              _infoRow('Already Dispatched', '${QuantityFormatter.formatDualUnit(alreadyConsumed, b.uom)} (Locked)'),
+                              _infoRow(ref.read(isChocolateUserProvider) ? 'Already Consigned' : 'Already Dispatched', '${QuantityFormatter.formatDualUnit(alreadyConsumed, b.uom)} (Locked)'),
                               _infoRow('Current Stock Available', QuantityFormatter.formatDualUnit(computedAvailable, b.uom)),
                             ],
                           ),
@@ -888,15 +1069,27 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Department
-                        TextFormField(
-                          controller: deptCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Department',
-                            prefixIcon: Icon(Icons.apartment_rounded, size: 18),
+                        if (!ref.read(isChocolateUserProvider)) ...[
+                          // Department
+                          TextFormField(
+                            controller: deptCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Department',
+                              prefixIcon: Icon(Icons.apartment_rounded, size: 18),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 12),
+
+                          // Rack / Shelf Location
+                          TextFormField(
+                            controller: rackCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Rack / Shelf Location',
+                              prefixIcon: Icon(Icons.shelves, size: 18, color: Color(0xFFF59E0B)),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
 
                         // UOM
                         UomDropdown(
@@ -977,6 +1170,18 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                               .eq('id', b.id);
                         } catch (err) {
                           debugPrint('Error updating batch expiry: $err');
+                        }
+                      }
+
+                      final newRack = rackCtrl.text.trim().isNotEmpty ? rackCtrl.text.trim().toUpperCase() : null;
+                      if (newRack != b.rackLocation) {
+                        try {
+                          await SupabaseConfig.client
+                              .from('batches')
+                              .update({'rack_location': newRack})
+                              .eq('id', b.id);
+                        } catch (err) {
+                          debugPrint('Error updating batch rack location: $err');
                         }
                       }
 
@@ -1088,16 +1293,21 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _detailRow('Batch No', b.batchNo),
-                _detailRow('Product Code', b.materialCode.isNotEmpty ? b.materialCode : '-'),
+                if (!ref.read(isChocolateUserProvider))
+                  _detailRow('Product Code', b.materialCode.isNotEmpty ? b.materialCode : '-'),
                 _detailRow('Description', b.description.isNotEmpty ? b.description : b.materialCode),
-                _detailRow('Department', b.department),
+                if (!ref.read(isChocolateUserProvider)) ...[
+                  _detailRow('Department', b.department),
+                  if (b.rackLocation != null && b.rackLocation!.isNotEmpty)
+                    _detailRow('Rack / Shelf', b.rackLocation!),
+                ],
                 if (b.category.isNotEmpty) _detailRow('Category', b.category),
                 if (b.grade.isNotEmpty && b.grade != 'STANDARD') _detailRow('Grade', b.grade),
                 _detailRow('UOM', b.uom),
                 _detailRow('Received Qty', QuantityFormatter.formatDualUnit(b.receivedQuantity, b.uom)),
-                _detailRow('Dispatched Qty', QuantityFormatter.formatDualUnit(b.consumedQuantity, b.uom)),
+                _detailRow(ref.read(isChocolateUserProvider) ? 'Consigned Qty' : 'Dispatched Qty', QuantityFormatter.formatDualUnit(b.consumedQuantity, b.uom)),
                 _detailRow('Available Qty', QuantityFormatter.formatDualUnit(b.availableQuantity, b.uom)),
-                _detailRow('Status', b.isExpired ? 'EXPIRED' : (b.isDepleted ? 'DEPLETED' : 'ACTIVE')),
+                _detailRow('Status', b.isExpired ? 'EXPIRED' : (b.isDepleted ? 'OUT OF STOCK' : 'ACTIVE')),
                 _detailRow('Date', AppDateFormatter.format(b.effectiveDate)),
                 _detailRow('Time', AppDateFormatter.formatTime(b.effectiveDateTime)),
                 if (b.expiryDate != null) _detailRow('Expiry Date', AppDateFormatter.format(b.expiryDate)),
@@ -1160,6 +1370,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
   @override
   Widget build(BuildContext context) {
     final isTablet = ResponsiveBreakpoints.isTabletOrLarger(context);
+    final isChoc = ref.watch(isChocolateUserProvider);
     final filter = BatchesFilter(
       viewMode: _currentView,
       search: _activeSearch.isEmpty ? null : _activeSearch,
@@ -1194,7 +1405,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     spacing: 12,
                     runSpacing: 10,
                     children: [
-                      // Storage Title & Subtitle
+                      // Storage / Tray Title & Subtitle
                       ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: (MediaQuery.of(context).size.width - 48).clamp(200.0, 600.0)),
                         child: Row(
@@ -1207,7 +1418,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                               ),
-                              child: const Icon(Icons.warehouse_rounded, color: AppColors.primaryLight, size: 22),
+                              child: Icon(isChoc ? Icons.shelves : Icons.warehouse_rounded, color: AppColors.primaryLight, size: 22),
                             ),
                             const SizedBox(width: 10),
                             Flexible(
@@ -1216,7 +1427,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Storage',
+                                    isChoc ? 'Rack' : 'Storage',
                                     style: GoogleFonts.inter(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -1225,7 +1436,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                     ),
                                   ),
                                   Text(
-                                    'Finished Goods & Batch Inventory',
+                                    isChoc ? 'Finished Goods & Rack Inventory' : 'Finished Goods & Batch Inventory',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
@@ -1237,17 +1448,17 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         ),
                       ),
 
-                      // Required Toolbar Buttons: [ Add Storage ] [ All History ] [ Print ] [ Filter ] [ Reset ]
+                      // Required Toolbar Buttons: [ Add Storage / Add Rack ] [ All History ] [ Print ] [ Filter ] [ Reset ]
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          // [ Add Storage ]
+                          // [ Add Storage / Add Rack ]
                           ElevatedButton.icon(
                             onPressed: _showAddBatchDialog,
                             icon: const Icon(Icons.add, size: 16),
-                            label: const Text('Add Storage', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            label: Text(isChoc ? 'Add Rack' : 'Add Storage', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.black,
@@ -1405,7 +1616,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                             const SizedBox(width: 8),
                             _buildMetricChip(icon: Icons.inventory_2_outlined, label: 'Today\'s Inward', value: '$todayInward batches', color: AppColors.secondary),
                             const SizedBox(width: 8),
-                            _buildMetricChip(icon: Icons.archive_outlined, label: 'Depleted Batches', value: '$depletedCount', color: AppColors.textMuted),
+                            _buildMetricChip(icon: Icons.archive_outlined, label: 'Out of Stock Batches', value: '$depletedCount', color: AppColors.textMuted),
                           ],
                         ),
                       );
@@ -1534,7 +1745,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     const SizedBox(width: 8),
                     _buildViewTab(mode: BatchViewMode.allHistory, title: 'All History', icon: Icons.history_rounded),
                     const SizedBox(width: 8),
-                    _buildViewTab(mode: BatchViewMode.depleted, title: 'Depleted', icon: Icons.archive_outlined),
+                    _buildViewTab(mode: BatchViewMode.depleted, title: 'Out of Stock', icon: Icons.archive_outlined),
                   ],
                 ),
               ),
@@ -1548,24 +1759,30 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                 loading: () => const LoadingSkeletonList(count: 6),
                 error: (err, _) => Center(
                   child: EmptyStateWidget(
-                    title: 'Error loading storage batches',
+                    title: isChoc ? 'Error loading rack batches' : 'Error loading storage batches',
                     message: err.toString(),
                   ),
                 ),
                 data: (batches) {
                   if (batches.isEmpty) {
                     final emptyTitle = switch (_currentView) {
-                      BatchViewMode.inStock => 'No active stock batches found',
-                      BatchViewMode.allHistory => 'No storage batches registered',
-                      BatchViewMode.depleted => 'No depleted batches',
+                      BatchViewMode.inStock => isChoc ? 'No active rack batches found' : 'No active stock batches found',
+                      BatchViewMode.allHistory => isChoc ? 'No rack batches registered' : 'No storage batches registered',
+                      BatchViewMode.depleted => isChoc ? 'No out of stock rack batches' : 'No out of stock batches',
                     };
                     final emptyMessage = switch (_currentView) {
-                      BatchViewMode.inStock => 'All received batches are either fully dispatched or depleted. Click "+ Add Batch" to record finished goods.',
-                      BatchViewMode.allHistory => 'Received finished goods batches will be logged here.',
-                      BatchViewMode.depleted => 'Depleted batches (0 available stock) will appear here for audit history.',
+                      BatchViewMode.inStock => isChoc
+                          ? 'All received rack batches are either fully consigned or out of stock. Click "+ Add Rack" to record finished goods.'
+                          : 'All received batches are either fully dispatched or out of stock. Click "+ Add Batch" to record finished goods.',
+                      BatchViewMode.allHistory => isChoc
+                          ? 'Received finished goods rack batches will be logged here.'
+                          : 'Received finished goods batches will be logged here.',
+                      BatchViewMode.depleted => isChoc
+                          ? 'Out of stock rack batches (0 available stock) will appear here for audit history.'
+                          : 'Out of stock batches (0 available stock) will appear here for audit history.',
                     };
                     return EmptyStateWidget(
-                      icon: Icons.layers_outlined,
+                      icon: isChoc ? Icons.shelves : Icons.layers_outlined,
                       title: emptyTitle,
                       message: emptyMessage,
                     );
@@ -1660,6 +1877,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
   // DESKTOP & TABLET DATA TABLE
   // ─────────────────────────────────────────────────────────────────────────────
   Widget _buildDesktopTable(List<BatchModel> batches) {
+    final isChoc = ref.watch(isChocolateUserProvider);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: GlassCard(
@@ -1673,42 +1891,45 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
               horizontalMargin: 16,
               columnSpacing: 18,
               columns: switch (_currentView) {
-                BatchViewMode.inStock => const [
-                    DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Stock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Availability', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                BatchViewMode.inStock => [
+                    const DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    if (!isChoc)
+                      const DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Stock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Availability', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
-                BatchViewMode.allHistory => const [
-                    DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Stock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Availability', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('UOM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Expiry', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                BatchViewMode.allHistory => [
+                    const DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    if (!isChoc)
+                      const DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Stock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Availability', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('UOM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Expiry', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
-                BatchViewMode.depleted => const [
-                    DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Stock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Dispatched Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Availability', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('UOM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Expiry', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                BatchViewMode.depleted => [
+                    const DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    if (!isChoc)
+                      const DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Stock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Dispatched Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Availability', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('UOM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Expiry', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    const DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
               },
               rows: batches.map((b) {
@@ -1774,13 +1995,33 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         DataCell(Text(dateStr, style: const TextStyle(fontSize: 12))),
                         DataCell(Text(timeStr, style: const TextStyle(fontSize: 11, color: AppColors.textMuted))),
                         DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(b.batchNo, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryLight, fontSize: 12)),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(b.batchNo, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryLight, fontSize: 12)),
+                              ),
+                              if (b.rackLocation != null && b.rackLocation!.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD97706).withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.4)),
+                                  ),
+                                  child: Text(
+                                    b.rackLocation!,
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         DataCell(
@@ -1789,12 +2030,13 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(productStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                              if (b.materialCode.isNotEmpty && b.materialCode != productStr)
+                              if (!isChoc && b.materialCode.isNotEmpty && b.materialCode != productStr)
                                 Text(b.materialCode, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
                             ],
                           ),
                         ),
-                        DataCell(Text(b.department, style: const TextStyle(fontSize: 12))),
+                        if (!isChoc)
+                          DataCell(Text(b.department, style: const TextStyle(fontSize: 12))),
                         DataCell(Text(QuantityFormatter.formatDualUnit(b.receivedQuantity, b.uom), style: const TextStyle(fontSize: 12))),
                         DataCell(
                           Text(
@@ -1841,7 +2083,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                           ),
                         ),
                         DataCell(Text(productStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        DataCell(Text(b.department, style: const TextStyle(fontSize: 12))),
+                        if (!isChoc)
+                          DataCell(Text(b.department, style: const TextStyle(fontSize: 12))),
                         DataCell(Text(QuantityFormatter.formatDualUnit(b.receivedQuantity, b.uom), style: const TextStyle(fontSize: 12))),
                         DataCell(
                           Text(
@@ -1857,7 +2100,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         expiryCell,
                         DataCell(
                           NeonPill(
-                            label: b.isDepleted ? 'DEPLETED' : 'ACTIVE',
+                            label: b.isDepleted ? 'OUT OF STOCK' : 'ACTIVE',
                             color: b.isDepleted ? AppColors.danger : AppColors.success,
                           ),
                         ),
@@ -1884,7 +2127,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                           ),
                         ),
                         DataCell(Text(productStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        DataCell(Text(b.department, style: const TextStyle(fontSize: 12))),
+                        if (!isChoc)
+                          DataCell(Text(b.department, style: const TextStyle(fontSize: 12))),
                         DataCell(Text(QuantityFormatter.formatDualUnit(b.receivedQuantity, b.uom), style: const TextStyle(fontSize: 12))),
                         DataCell(Text(QuantityFormatter.formatDualUnit(b.consumedQuantity, b.uom), style: const TextStyle(fontSize: 12, color: AppColors.warning))),
                         DataCell(
@@ -1896,7 +2140,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         DataCell(Text(b.uom, style: const TextStyle(fontSize: 12))),
                         expiryCell,
                         DataCell(
-                          const NeonPill(label: 'DEPLETED', color: AppColors.danger),
+                          const NeonPill(label: 'OUT OF STOCK', color: AppColors.danger),
                         ),
                         DataCell(
                           IconButton(
@@ -1920,6 +2164,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
   // MOBILE CARDS LAYOUT
   // ─────────────────────────────────────────────────────────────────────────────
   Widget _buildMobileCards(List<BatchModel> batches) {
+    final isChoc = ref.watch(isChocolateUserProvider);
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: batches.length,
@@ -1936,29 +2181,80 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top row: Batch No & Department
+                // Top row: Batch No & Rack/Tray Location & Department
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (b.isDepleted ? AppColors.danger : AppColors.primary).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Batch #${b.batchNo}',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: b.isDepleted ? AppColors.danger : AppColors.primaryLight,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (b.isDepleted ? AppColors.danger : AppColors.primary).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Batch #${b.batchNo}',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: b.isDepleted ? AppColors.danger : AppColors.primaryLight,
+                            ),
+                          ),
                         ),
+                        if (!isChoc && b.rackLocation != null && b.rackLocation!.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD97706).withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.shelves, size: 12, color: const Color(0xFFF59E0B)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  b.rackLocation!,
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: const Color(0xFFF59E0B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (b.ocrLedgerId != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.document_scanner_rounded, size: 10, color: Color(0xFFF59E0B)),
+                                SizedBox(width: 3),
+                                Text('OCR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (!isChoc)
+                      Text(
+                        b.department,
+                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                       ),
-                    ),
-                    Text(
-                      b.department,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1968,7 +2264,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   productStr,
                   style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
-                if (b.materialCode.isNotEmpty && b.materialCode != productStr) ...[
+                if (!isChoc && b.materialCode.isNotEmpty && b.materialCode != productStr) ...[
                   const SizedBox(height: 2),
                   Text(b.materialCode, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                 ],
@@ -2086,7 +2382,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       ],
                     ),
                     NeonPill(
-                      label: b.isDepleted ? 'DEPLETED' : 'IN STOCK',
+                      label: b.isDepleted ? 'OUT OF STOCK' : 'IN STOCK',
                       color: b.isDepleted ? AppColors.danger : AppColors.success,
                     ),
                   ],

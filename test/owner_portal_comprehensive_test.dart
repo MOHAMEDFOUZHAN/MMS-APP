@@ -9,18 +9,18 @@ import 'package:mms_app/presentation/providers/owner_providers.dart';
 
 void main() {
   group('1. Owner Profile & Permission Tests', () {
-    test('Owner user has isOwner == true and isAdmin == true', () {
+    test('Owner user has isOwner == true and read-only reporting permissions', () {
       final ownerProfile = UserProfileModel(
         id: 'owner-uuid-1',
         username: 'owner',
-        fullName: 'Executive Owner',
+        fullName: 'Executive Management',
         role: 'OWNER',
         permissions: ['owner.*', 'reports.*'],
       );
 
       expect(ownerProfile.isOwner, isTrue);
-      expect(ownerProfile.isAdmin, isTrue);
-      expect(ownerProfile.hasPermission('any.permission'), isTrue);
+      expect(ownerProfile.isAdmin, isFalse);
+      expect(ownerProfile.hasPermission('reports.view'), isTrue);
     });
 
     test('Normal Operator / Staff user has isOwner == false', () {
@@ -235,13 +235,13 @@ void main() {
 
       // Verify Executive Title
       expect(find.text('BENCHMARK MMS'), findsOneWidget);
-      expect(find.text('OWNER ACCESS'), findsOneWidget);
+      expect(find.text('MANAGEMENT ACCESS'), findsOneWidget);
 
       // Verify Mandatory Security Message (No emojis)
-      expect(find.text('Authorized owner access only.'), findsOneWidget);
+      expect(find.text('Authorized management access only.'), findsOneWidget);
 
       // Verify Input Labels & Buttons
-      expect(find.text('OWNER IDENTIFIER'), findsOneWidget);
+      expect(find.text('MANAGEMENT USERNAME / ID'), findsOneWidget);
       expect(find.text('PASSWORD'), findsOneWidget);
       expect(find.text('SIGN IN'), findsOneWidget);
       expect(find.text('Operator Login'), findsOneWidget);

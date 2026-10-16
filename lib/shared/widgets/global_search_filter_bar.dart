@@ -216,12 +216,16 @@ class _GlobalSearchFilterBarState extends State<GlobalSearchFilterBar> {
                       children: [
                         const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.primaryLight),
                         const SizedBox(width: 6),
-                        Text(
-                          _fromDate != null ? 'From: ${AppDateFormatter.format(_fromDate)}' : 'From Date (DD/MM/YYYY)',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: _fromDate != null ? FontWeight.w600 : FontWeight.normal,
-                            color: _fromDate != null ? AppColors.textPrimary : AppColors.textMuted,
+                        Flexible(
+                          child: Text(
+                            _fromDate != null ? 'From: ${AppDateFormatter.format(_fromDate)}' : 'From Date',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: _fromDate != null ? FontWeight.w600 : FontWeight.normal,
+                              color: _fromDate != null ? AppColors.textPrimary : AppColors.textMuted,
+                            ),
                           ),
                         ),
                       ],
@@ -248,12 +252,16 @@ class _GlobalSearchFilterBarState extends State<GlobalSearchFilterBar> {
                       children: [
                         const Icon(Icons.event_outlined, size: 14, color: AppColors.primaryLight),
                         const SizedBox(width: 6),
-                        Text(
-                          _toDate != null ? 'To: ${AppDateFormatter.format(_toDate)}' : 'To Date (DD/MM/YYYY)',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: _toDate != null ? FontWeight.w600 : FontWeight.normal,
-                            color: _toDate != null ? AppColors.textPrimary : AppColors.textMuted,
+                        Flexible(
+                          child: Text(
+                            _toDate != null ? 'To: ${AppDateFormatter.format(_toDate)}' : 'To Date',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: _toDate != null ? FontWeight.w600 : FontWeight.normal,
+                              color: _toDate != null ? AppColors.textPrimary : AppColors.textMuted,
+                            ),
                           ),
                         ),
                       ],

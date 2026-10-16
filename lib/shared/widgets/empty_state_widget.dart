@@ -22,32 +22,33 @@ class EmptyStateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.primary.withValues(alpha: 0.1),
                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
               ),
-              child: Icon(icon, size: 36, color: AppColors.primaryLight),
+              child: Icon(icon, size: 30, color: AppColors.primaryLight),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               title,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               message,
               textAlign: TextAlign.center,
@@ -57,13 +58,13 @@ class EmptyStateWidget extends StatelessWidget {
               ),
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               GlassButton(
                 text: actionLabel!.startsWith('+ ') ? actionLabel!.substring(2).trim() : actionLabel!,
                 onPressed: onAction,
                 icon: Icons.add_rounded,
-                height: 42,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               ),
             ],
           ],

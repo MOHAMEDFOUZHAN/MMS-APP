@@ -20,16 +20,41 @@ class UserProfileModel {
   });
 
   bool get isOwner => role.toUpperCase() == 'OWNER' || permissions.contains('owner.*');
-  bool get isAdmin => role.toUpperCase() == 'ADMIN' || isOwner;
+  bool get isAdmin => role.toUpperCase() == 'ADMIN';
   bool get isTeaUser =>
-      role.toUpperCase() == 'TEA_USER' ||
-      role.toUpperCase() == 'TEA' ||
-      username.toLowerCase() == 'bm' ||
-      username.toLowerCase() == 'tea' ||
-      username.toLowerCase() == 'tea123';
+      !isAdmin &&
+      !isOwner &&
+      (role.toUpperCase() == 'TEA_USER' ||
+          role.toUpperCase() == 'TEA' ||
+          username.toLowerCase() == 'bm' ||
+          username.toLowerCase() == 'tea' ||
+          username.toLowerCase() == 'tea123');
+
+  bool get isChocolateUser =>
+      !isAdmin &&
+      !isOwner &&
+      (role.toUpperCase() == 'CHOCOLATE_USER' ||
+          role.toUpperCase() == 'CHOCOLATE' ||
+          username.toLowerCase() == 'chocolate' ||
+          username.toLowerCase() == 'cho');
 
   bool hasPermission(String perm) {
-    if (isOwner || isAdmin) return true;
+    if (isOwner) {
+      // Owner has strictly read-only reporting access
+      if (perm.endsWith('.view') ||
+          perm.startsWith('reports.') ||
+          perm.startsWith('owner.') ||
+          perm == 'view') {
+        return true;
+      }
+      return false;
+    }
+    if (isAdmin) return true;
+    if (isChocolateUser) {
+      if (perm.startsWith('transfer') || perm.startsWith('consume')) {
+        return false;
+      }
+    }
     if (permissions.contains('*') || permissions.contains(perm)) return true;
     final prefix = perm.split('.').first;
     if (permissions.contains('$prefix.*')) return true;

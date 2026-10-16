@@ -11,9 +11,11 @@ import '../../core/theme/glass_widgets.dart';
 import '../../core/utils/text_standardizer.dart';
 import '../../data/models/dispatch_model.dart';
 import '../../data/models/storage_product_model.dart';
+import '../../data/models/chocolate_ocr_ledger_model.dart';
 import '../../shared/widgets/standardized_text_field.dart';
 import '../providers/app_providers.dart';
 import '../providers/spelling_providers.dart';
+import '../providers/chocolate_ocr_providers.dart';
 
 class AddDispatchScreen extends ConsumerStatefulWidget {
   final DispatchModel? existingDispatch;
@@ -36,10 +38,13 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
   final _nameFocusNode = FocusNode();
 
   DateTime _dispatchDate = DateTime.now();
-  late String _selectedDepartment = ref.read(isTeaUserProvider) ? 'Tea' : 'Dispatch';
+  late String _selectedDepartment = ref.read(isChocolateUserProvider)
+      ? 'Chocolate'
+      : (ref.read(isTeaUserProvider) ? 'Tea' : 'Dispatch');
 
   // Storage Product Identity (Independent of Material Master)
   int? _storageProductId;
+  int? _ocrLedgerId;
   String _productCode = '';
   String _productName = '';
   String _grade = 'STANDARD';
@@ -54,6 +59,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
 
   // Available Storage Products cache for instant autocomplete
   List<DispatchAvailableProductModel> _availableProducts = [];
+  List<ChocolateOcrLedgerModel> _confirmedOcrScans = [];
   bool _isLoadingProducts = false;
 
   bool get _isEditMode => widget.existingDispatch != null;
@@ -81,6 +87,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
       _quantityController.text = d.quantity.toStringAsFixed(3);
       _returnController.text = d.returnQuantity.toStringAsFixed(3);
       _dispatchDate = d.date;
+      _ocrLedgerId = d.ocrLedgerId;
       _fetchServerStockPreview();
     }
   }
@@ -90,7 +97,36 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
     try {
       final repo = ref.read(storageProductsRepositoryProvider);
       final isTeaUser = ref.read(isTeaUserProvider);
-      final products = await repo.getDispatchAvailableProducts(category: isTeaUser ? 'TEA' : null);
+      final isChoc = ref.read(isChocolateUserProvider);
+      final cat = isChoc ? 'CHOCOLATE' : (isTeaUser ? 'TEA' : null);
+      final products = await repo.getDispatchAvailableProducts(category: cat);
+
+      if (isChoc) {
+        try {
+          _confirmedOcrScans = await ref.read(chocolateOcrRepositoryProvider).fetchLedger();
+        } catch (e) {
+          debugPrint('Error loading OCR scans in dispatch: $e');
+        }
+
+        // Merge confirmed OCR products into the available products list if not already present
+        for (final scan in _confirmedOcrScans) {
+          if (!products.any((p) => p.productName.trim().toLowerCase() == scan.description.trim().toLowerCase())) {
+            products.add(DispatchAvailableProductModel(
+              productCode: scan.productCode,
+              productName: scan.description,
+              uom: scan.unit.toLowerCase(),
+              grade: 'STANDARD',
+              category: 'CHOCOLATE',
+              totalAvailable: 0.0,
+              batchCount: 0,
+            ));
+          }
+        }
+      }
+
+      // Default sorting: Alphabetical by product name (Requirement 3)
+      products.sort((a, b) => a.productName.toLowerCase().compareTo(b.productName.toLowerCase()));
+
       if (mounted) {
         setState(() {
           _availableProducts = products;
@@ -130,6 +166,17 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
       if (selection.uom.isNotEmpty) _selectedUnit = selection.uom.toLowerCase();
       if (selection.grade.isNotEmpty) _grade = selection.grade;
       _availableStorageStock = selection.totalAvailable;
+
+      final isChoc = ref.read(isChocolateUserProvider);
+      if (isChoc && _quantityController.text.trim().isEmpty) {
+        final matchingScan = _confirmedOcrScans
+            .where((s) => s.description.trim().toLowerCase() == selection.productName.trim().toLowerCase())
+            .firstOrNull;
+        if (matchingScan != null) {
+          _quantityController.text = QuantityFormatter.formatClean(matchingScan.quantity);
+          _ocrLedgerId = matchingScan.id;
+        }
+      }
     });
     _fetchServerStockPreview();
   }
@@ -200,10 +247,19 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
   Future<void> _submitDispatch() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final isChoc = ref.read(isChocolateUserProvider);
+    if (_productCode.isEmpty && _nameController.text.trim().isNotEmpty) {
+      final typed = _nameController.text.trim().toLowerCase();
+      final match = _availableProducts.where((p) => p.productName.trim().toLowerCase() == typed).firstOrNull;
+      if (match != null) {
+        _onProductSelected(match);
+      }
+    }
+
     if (_productCode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a finished product from Storage.'),
+        SnackBar(
+          content: Text(isChoc ? 'Please select a finished product from Rack.' : 'Please select a finished product from Storage.'),
           backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
         ),
@@ -216,8 +272,8 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
 
     if (qty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Dispatch quantity must be greater than zero.'),
+        SnackBar(
+          content: Text(isChoc ? 'Consignment quantity must be greater than zero.' : 'Dispatch quantity must be greater than zero.'),
           backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
         ),
@@ -239,8 +295,8 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
     final netQty = qty - retQty;
     if (netQty < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Return quantity cannot exceed dispatch quantity.'),
+        SnackBar(
+          content: Text(isChoc ? 'Return quantity cannot exceed consignment quantity.' : 'Return quantity cannot exceed dispatch quantity.'),
           backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
         ),
@@ -248,7 +304,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
       return;
     }
 
-    // Atomic pre-check against Storage stock (Requirement 11)
+    // Atomic pre-check against Tray / Storage stock (Requirement 11)
     if (netQty > _availableStorageStock) {
       final shortage = netQty - _availableStorageStock;
       showDialog(
@@ -265,7 +321,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Insufficient Storage Stock',
+                  isChoc ? 'Insufficient Rack Stock' : 'Insufficient Storage Stock',
                   style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.danger),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -277,7 +333,9 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Requested dispatch quantity exceeds the total available stock in Storage batches. No partial dispatch will be created.',
+                isChoc
+                    ? 'Requested consignment quantity exceeds the total available stock in Rack batches. No partial consignment will be created.'
+                    : 'Requested dispatch quantity exceeds the total available stock in Storage batches. No partial dispatch will be created.',
                 style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 12),
@@ -292,8 +350,8 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
                   children: [
                     _dialogRow('Requested Quantity', '${QuantityFormatter.formatClean(qty)} $_selectedUnit'),
                     _dialogRow('Return Quantity', '${QuantityFormatter.formatClean(retQty)} $_selectedUnit'),
-                    _dialogRow('Net Dispatch', '${QuantityFormatter.formatClean(netQty)} $_selectedUnit'),
-                    _dialogRow('Total Storage Available', '${QuantityFormatter.formatClean(_availableStorageStock)} $_selectedUnit'),
+                    _dialogRow(isChoc ? 'Net Consignment' : 'Net Dispatch', '${QuantityFormatter.formatClean(netQty)} $_selectedUnit'),
+                    _dialogRow(isChoc ? 'Total Rack Available' : 'Total Storage Available', '${QuantityFormatter.formatClean(_availableStorageStock)} $_selectedUnit'),
                     const Divider(height: 14),
                     _dialogRow('Stock Shortage', '${QuantityFormatter.formatClean(shortage)} $_selectedUnit', isBold: true, color: AppColors.danger),
                   ],
@@ -380,13 +438,16 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
     try {
       final repo = ref.read(dispatchesRepositoryProvider);
       final isTeaUser = ref.read(isTeaUserProvider);
+      final isChoc = ref.read(isChocolateUserProvider);
+      final effectiveCategory = isChoc ? 'CHOCOLATE' : (isTeaUser ? 'TEA' : 'Finished Goods');
+
       if (_isEditMode) {
         await repo.updateDispatch(
           dispatchId: widget.existingDispatch!.id,
           storageProductId: _storageProductId,
           materialCode: TextStandardizer.normalizeCode(_productCode),
           product: TextStandardizer.normalizeBusinessText(_productName.isNotEmpty ? _productName : _productCode),
-          category: isTeaUser ? 'TEA' : 'Finished Goods',
+          category: effectiveCategory,
           grade: _grade,
           quantity: qty,
           returnQuantity: retQty,
@@ -395,13 +456,14 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
           department: TextStandardizer.normalizeBusinessText(_selectedDepartment),
           remarks: TextStandardizer.normalizeBusinessText(_remarksController.text),
           date: _dispatchDate,
+          ocrLedgerId: _ocrLedgerId,
         );
       } else {
         await repo.createDispatchFifo(
           storageProductId: _storageProductId,
           materialCode: TextStandardizer.normalizeCode(_productCode),
           product: TextStandardizer.normalizeBusinessText(_productName.isNotEmpty ? _productName : _productCode),
-          category: isTeaUser ? 'TEA' : 'Finished Goods',
+          category: effectiveCategory,
           grade: _grade,
           quantity: qty,
           returnQuantity: retQty,
@@ -410,6 +472,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
           department: TextStandardizer.normalizeBusinessText(_selectedDepartment),
           remarks: TextStandardizer.normalizeBusinessText(_remarksController.text),
           date: _dispatchDate,
+          ocrLedgerId: _ocrLedgerId,
         );
       }
 
@@ -424,8 +487,12 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_isEditMode
-                ? 'Dispatch #${widget.existingDispatch!.id} updated with atomic FIFO batch re-allocation!'
-                : 'Dispatched ${QuantityFormatter.formatClean(qty)} $_selectedUnit (Net: ${QuantityFormatter.formatClean(netQty)}) from Storage batches!'),
+                ? (isChoc
+                    ? 'Consignment #${widget.existingDispatch!.id} updated!'
+                    : 'Dispatch #${widget.existingDispatch!.id} updated with atomic FIFO batch re-allocation!')
+                : (isChoc
+                    ? 'Consignment of ${QuantityFormatter.formatClean(qty)} $_selectedUnit (Net: ${QuantityFormatter.formatClean(netQty)}) recorded from Rack batches!'
+                    : 'Dispatched ${QuantityFormatter.formatClean(qty)} $_selectedUnit (Net: ${QuantityFormatter.formatClean(netQty)}) from Storage batches!')),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),
@@ -451,33 +518,39 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
   String _formatDispatchError(dynamic e) {
     debugPrint('[DISPATCH ERROR] Technical details: $e');
     final errStr = e.toString();
+    final isChoc = ref.read(isChocolateUserProvider);
 
     // Check known business errors
     if (errStr.contains('Insufficient Storage Stock')) {
       final match = RegExp(r'Insufficient Storage Stock[^\n]*').firstMatch(errStr);
-      return match != null ? match.group(0)! : 'Insufficient Storage Stock. Please check available quantity.';
+      final rawMsg = match != null ? match.group(0)! : 'Insufficient Storage Stock. Please check available quantity.';
+      return isChoc ? rawMsg.replaceAll('Storage', 'Rack') : rawMsg;
     }
     if (errStr.contains('Return quantity cannot exceed Dispatch quantity') ||
         errStr.contains('cannot exceed Dispatch quantity')) {
-      return 'Return quantity cannot exceed Dispatch quantity.';
+      return isChoc
+          ? 'Return quantity cannot exceed consignment quantity.'
+          : 'Return quantity cannot exceed Dispatch quantity.';
     }
     if (errStr.contains('Return quantity cannot be negative')) {
       return 'Return quantity cannot be negative.';
     }
     if (errStr.contains('Dispatch quantity must be greater than zero')) {
-      return 'Dispatch quantity must be greater than zero.';
+      return isChoc
+          ? 'Consignment quantity must be greater than zero.'
+          : 'Dispatch quantity must be greater than zero.';
     }
     if (errStr.contains('Product code is required')) {
-      return 'Product code is required for Dispatch.';
+      return isChoc ? 'Product is required for Consignment.' : 'Product code is required for Dispatch.';
     }
 
     if (kDebugMode) {
       // In development/debug builds, provide technical error info safely
       final sanitized = errStr.replaceAll(RegExp(r'Bearer [A-Za-z0-9_\-\.]+'), 'Bearer ***');
-      return 'Unable to save Dispatch: $sanitized (RPC: ${_isEditMode ? "update_dispatch" : "create_dispatch_fifo"}). No stock was changed.';
+      return 'Unable to save ${isChoc ? "Consignment" : "Dispatch"}: $sanitized (RPC: ${_isEditMode ? "update_dispatch" : "create_dispatch_fifo"}). No stock was changed.';
     }
 
-    return 'Unable to save Dispatch. No stock was changed. Please try again.';
+    return 'Unable to save ${isChoc ? "Consignment" : "Dispatch"}. No stock was changed. Please try again.';
   }
 
   Widget _dialogRow(String label, String value, {bool isBold = false, Color? color}) {
@@ -503,10 +576,13 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
   @override
   Widget build(BuildContext context) {
     final isTablet = ResponsiveBreakpoints.isTabletOrLarger(context);
+    final isChoc = ref.watch(isChocolateUserProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditMode ? 'Edit Dispatch' : 'Record Storage Stock-Out (FIFO)'),
+        title: Text(isChoc
+            ? (_isEditMode ? 'Edit Chocolate Consignment' : 'Record Chocolate Consignment (FIFO)')
+            : (_isEditMode ? 'Edit Dispatch' : 'Record Storage Stock-Out (FIFO)')),
       ),
       body: AmbientBackground(
         child: SafeArea(
@@ -583,11 +659,13 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
         Expanded(
           flex: 2,
           child: GlassButton(
-            text: _isEditMode ? 'Update Dispatch' : 'Save Dispatch',
+            text: ref.watch(isChocolateUserProvider)
+                ? (_isEditMode ? 'Update Consignment' : 'Confirm Consignment')
+                : (_isEditMode ? 'Update Dispatch' : 'Save Dispatch'),
             height: 50,
             isLoading: _isSaving,
             icon: Icons.check_circle_rounded,
-            color: AppColors.secondary,
+            color: ref.watch(isChocolateUserProvider) ? const Color(0xFFD97706) : AppColors.secondary,
             onPressed: _submitDispatch,
           ),
         ),
@@ -596,6 +674,8 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
   }
 
   Widget _buildFormCard() {
+    final isChoc = ref.watch(isChocolateUserProvider);
+
     return GlassCard(
       accentColor: AppColors.secondary,
       child: Column(
@@ -618,12 +698,14 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Storage Stock-Out Operation',
+                      isChoc ? 'Rack Consignment Operation' : 'Storage Stock-Out Operation',
                       style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
                     ),
-                    const Text(
-                      'Direct stock deduction from Storage batches in FIFO sequence. Finished products only.',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    Text(
+                      isChoc
+                          ? 'Direct stock deduction from Rack batches in FIFO sequence. Finished products only.'
+                          : 'Direct stock deduction from Storage batches in FIFO sequence. Finished products only.',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -640,84 +722,178 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
               const Icon(Icons.inventory_2_rounded, size: 16, color: AppColors.primaryLight),
               const SizedBox(width: 6),
               Text(
-                'PRODUCT (STORAGE ONLY)',
+                isChoc ? 'PRODUCT (RACK ONLY)' : 'PRODUCT (STORAGE ONLY)',
                 style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryLight, letterSpacing: 0.5),
               ),
             ],
           ),
           const SizedBox(height: 10),
 
-          // Product Code Field
-          Text('Product Code *', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-          const SizedBox(height: 6),
-          RawAutocomplete<DispatchAvailableProductModel>(
-            textEditingController: _codeController,
-            focusNode: _codeFocusNode,
-            optionsBuilder: (TextEditingValue textEditingValue) {
-              if (textEditingValue.text.isEmpty) {
-                return _availableProducts;
-              }
-              final q = textEditingValue.text.trim().toLowerCase();
-              return _availableProducts.where(
-                (p) => p.productCode.toLowerCase().contains(q) || p.productName.toLowerCase().contains(q),
-              );
-            },
-            displayStringForOption: (DispatchAvailableProductModel option) => option.productCode,
-            onSelected: _onProductSelected,
-            optionsViewBuilder: (context, onSelected, options) {
-              final width = MediaQuery.of(context).size.width.clamp(280.0, 480.0);
-              return Align(
-                alignment: Alignment.topLeft,
-                child: Material(
-                  elevation: 8,
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(8),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: 200, maxWidth: width),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.glassBorder),
+          // Confirmed OCR Scan Quick Selector (Requirement 2)
+          if (isChoc && _confirmedOcrScans.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.35)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.document_scanner_rounded, size: 16, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Auto-Fill from Confirmed OCR Scan',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
                       ),
-                      child: ListView.separated(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: options.length,
-                        separatorBuilder: (_, __) => Divider(color: AppColors.glassBorder, height: 1),
-                        itemBuilder: (context, index) {
-                          final opt = options.elementAt(index);
-                          return ListTile(
-                            dense: true,
-                            title: Text(opt.productCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryLight, fontSize: 13)),
-                            subtitle: Text('${opt.productName} • ${QuantityFormatter.formatClean(opt.totalAvailable)} ${opt.uom} available',
-                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                            onTap: () => onSelected(opt),
-                          );
-                        },
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    value: _ocrLedgerId,
+                    isExpanded: true,
+                    dropdownColor: const Color(0xFF0F172A),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      hintText: 'Select confirmed OCR scan...',
+                      hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    items: _confirmedOcrScans.map((scan) {
+                      return DropdownMenuItem<int>(
+                        value: scan.id,
+                        child: Text(
+                          '${scan.description} — ${scan.displayQuantity} (${scan.formattedDate})',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (ocrId) {
+                      if (ocrId != null) {
+                        final scan = _confirmedOcrScans.firstWhere((s) => s.id == ocrId);
+                        final matchingProd = _availableProducts
+                            .where((p) => p.productName.trim().toLowerCase() == scan.description.trim().toLowerCase())
+                            .firstOrNull;
+                        setState(() {
+                          _ocrLedgerId = scan.id;
+                          _productCode = scan.productCode;
+                          _productName = scan.description;
+                          _codeController.text = scan.productCode;
+                          _nameController.text = scan.description;
+                          _quantityController.text = QuantityFormatter.formatClean(scan.quantity);
+                          _selectedUnit = scan.unit.toLowerCase();
+                          if (matchingProd != null) {
+                            _availableStorageStock = matchingProd.totalAvailable;
+                          }
+                        });
+                        _fetchServerStockPreview();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Product Code Field (Hidden for Chocolate users)
+          if (!isChoc) ...[
+            Text('Product Code *', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+            const SizedBox(height: 6),
+            RawAutocomplete<DispatchAvailableProductModel>(
+              textEditingController: _codeController,
+              focusNode: _codeFocusNode,
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                if (textEditingValue.text.isEmpty) {
+                  return _availableProducts;
+                }
+                final q = textEditingValue.text.trim().toLowerCase();
+                return _availableProducts.where(
+                  (p) => p.productCode.toLowerCase().contains(q) || p.productName.toLowerCase().contains(q),
+                );
+              },
+              displayStringForOption: (DispatchAvailableProductModel option) => option.productCode,
+              onSelected: _onProductSelected,
+              optionsViewBuilder: (context, onSelected, options) {
+                final width = MediaQuery.of(context).size.width.clamp(280.0, 480.0);
+                if (options.isEmpty) {
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 8,
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.glassBorder),
+                        ),
+                        child: Text('No matching products found', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted)),
+                      ),
+                    ),
+                  );
+                }
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 8,
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: 200, maxWidth: width),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.glassBorder),
+                        ),
+                        child: ListView.separated(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          itemCount: options.length,
+                          separatorBuilder: (_, __) => Divider(color: AppColors.glassBorder, height: 1),
+                          itemBuilder: (context, index) {
+                            final opt = options.elementAt(index);
+                            return ListTile(
+                              dense: true,
+                              title: Text(opt.productCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryLight, fontSize: 13)),
+                              subtitle: Text('${opt.productName} • ${QuantityFormatter.formatClean(opt.totalAvailable)} ${opt.uom} available',
+                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                              onTap: () => onSelected(opt),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
-            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-              return TextFormField(
-                controller: controller,
-                focusNode: focusNode,
-                decoration: InputDecoration(
-                  hintText: 'Select Product Code from Storage',
-                  prefixIcon: const Icon(Icons.qr_code_rounded, size: 18),
-                  suffixIcon: _isLoadingProducts
-                      ? const SizedBox(width: 14, height: 14, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
-                      : null,
-                ),
-                onChanged: _onCodeChanged,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Product Code required' : null,
-              );
-            },
-          ),
-          const SizedBox(height: 12),
+                );
+              },
+              fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                return TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  decoration: InputDecoration(
+                    hintText: 'Select Product Code from Storage',
+                    prefixIcon: const Icon(Icons.qr_code_rounded, size: 18),
+                    suffixIcon: _isLoadingProducts
+                        ? const SizedBox(width: 14, height: 14, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                        : null,
+                  ),
+                  onChanged: _onCodeChanged,
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Product Code required' : null,
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // Product Name Field
           Text('Product Name *', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
@@ -738,6 +914,25 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
             onSelected: _onProductSelected,
             optionsViewBuilder: (context, onSelected, options) {
               final width = MediaQuery.of(context).size.width.clamp(280.0, 480.0);
+              if (options.isEmpty) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 8,
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.glassBorder),
+                      ),
+                      child: Text('No matching products found', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted)),
+                    ),
+                  ),
+                );
+              }
               return Align(
                 alignment: Alignment.topLeft,
                 child: Material(
@@ -762,8 +957,17 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
                           return ListTile(
                             dense: true,
                             title: Text(opt.productName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 13)),
-                            subtitle: Text('${opt.productCode} • ${QuantityFormatter.formatClean(opt.totalAvailable)} ${opt.uom} available',
-                                style: const TextStyle(color: AppColors.primaryLight, fontSize: 11)),
+                            subtitle: Text(
+                              isChoc
+                                  ? (opt.totalAvailable > 0
+                                      ? '${QuantityFormatter.formatClean(opt.totalAvailable)} ${opt.uom} available in Rack'
+                                      : 'Available in Rack: 0 ${opt.uom} (Inward to Rack first)')
+                                  : '${opt.productCode} • ${QuantityFormatter.formatClean(opt.totalAvailable)} ${opt.uom} available',
+                              style: TextStyle(
+                                color: opt.totalAvailable > 0 ? AppColors.primaryLight : AppColors.warning,
+                                fontSize: 11,
+                              ),
+                            ),
                             onTap: () => onSelected(opt),
                           );
                         },
@@ -777,9 +981,9 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
               return TextFormField(
                 controller: controller,
                 focusNode: focusNode,
-                decoration: const InputDecoration(
-                  hintText: 'Select Product Name from Storage',
-                  prefixIcon: Icon(Icons.description_outlined, size: 18),
+                decoration: InputDecoration(
+                  hintText: isChoc ? 'Select Product Name from Rack' : 'Select Product Name from Storage',
+                  prefixIcon: const Icon(Icons.description_outlined, size: 18),
                 ),
                 onChanged: _onNameChanged,
                 validator: (v) => v == null || v.trim().isEmpty ? 'Product Name required' : null,
@@ -788,7 +992,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Available Storage Stock Strip
+          // Available Stock Strip
           if (_productCode.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -807,7 +1011,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Available Storage Stock: ${QuantityFormatter.formatClean(_availableStorageStock)} $_selectedUnit',
+                      '${isChoc ? "Available Rack Stock" : "Available Storage Stock"}: ${QuantityFormatter.formatClean(_availableStorageStock)} $_selectedUnit',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -955,25 +1159,27 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
           ),
           const SizedBox(height: 14),
 
-          // Department Field
-          Text('Department', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-          const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            value: FactoryConstants.departments.contains(_selectedDepartment) ? _selectedDepartment : 'Dispatch',
-            dropdownColor: const Color(0xFF0F172A),
-            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.apartment_rounded, size: 18),
+          if (!isChoc) ...[
+            // Department Field
+            Text('Department', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: FactoryConstants.departments.contains(_selectedDepartment) ? _selectedDepartment : 'Dispatch',
+              dropdownColor: const Color(0xFF0F172A),
+              style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.apartment_rounded, size: 18),
+              ),
+              items: [
+                const DropdownMenuItem(value: 'Dispatch', child: Text('Dispatch')),
+                ...FactoryConstants.departments.map((d) => DropdownMenuItem(value: d, child: Text(d))),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedDepartment = val);
+              },
             ),
-            items: [
-              const DropdownMenuItem(value: 'Dispatch', child: Text('Dispatch')),
-              ...FactoryConstants.departments.map((d) => DropdownMenuItem(value: d, child: Text(d))),
-            ],
-            onChanged: (val) {
-              if (val != null) setState(() => _selectedDepartment = val);
-            },
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
 
           // Destination Location
           Text('Destination Location / Customer', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
@@ -1004,6 +1210,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
   }
 
   Widget _buildPreviewCard() {
+    final isChoc = ref.watch(isChocolateUserProvider);
     final reqQty = double.tryParse(_quantityController.text.trim()) ?? 0.0;
     final retQty = double.tryParse(_returnController.text.trim()) ?? 0.0;
     final netQty = (reqQty - retQty).clamp(0.0, double.infinity);
@@ -1031,7 +1238,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'STORAGE ALLOCATION',
+                    isChoc ? 'RACK ALLOCATION' : 'STORAGE ALLOCATION',
                     style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryLight, letterSpacing: 0.5),
                   ),
                 ],
@@ -1059,20 +1266,24 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Total Available in Storage:', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                    Text(
-                      '${QuantityFormatter.formatClean(_availableStorageStock)} $_selectedUnit',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: _availableStorageStock > 0 ? AppColors.success : AppColors.danger,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(isChoc ? 'Total Available in Rack:' : 'Total Available in Storage:', style: const TextStyle(fontSize: 11, color: AppColors.textMuted), overflow: TextOverflow.ellipsis),
+                      Text(
+                        '${QuantityFormatter.formatClean(_availableStorageStock)} $_selectedUnit',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: _availableStorageStock > 0 ? AppColors.success : AppColors.danger,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -1095,7 +1306,7 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
 
           // Available Batches Breakdown (FIFO sequence)
           Text(
-            'Eligible Storage Batches (FIFO Sequence):',
+            isChoc ? 'Eligible Rack Batches (FIFO Sequence):' : 'Eligible Storage Batches (FIFO Sequence):',
             style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
@@ -1111,8 +1322,10 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
               child: Center(
                 child: Text(
                   _productCode.isEmpty
-                      ? 'Select a finished product to view storage batches.'
-                      : 'No available storage batches found for $_productCode.',
+                      ? (isChoc ? 'Select a finished product to view rack batches.' : 'Select a finished product to view storage batches.')
+                      : (isChoc
+                          ? 'No available rack batches found for ${_productName.isNotEmpty ? _productName : _productCode}.'
+                          : 'No available storage batches found for $_productCode.'),
                   style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                   textAlign: TextAlign.center,
                 ),
@@ -1284,11 +1497,11 @@ class _AddDispatchScreenState extends ConsumerState<AddDispatchScreen> {
             ),
             child: Column(
               children: [
-                _summaryRow('Requested Dispatch', '${QuantityFormatter.formatClean(reqQty)} $_selectedUnit'),
+                _summaryRow(isChoc ? 'Requested Consignment' : 'Requested Dispatch', '${QuantityFormatter.formatClean(reqQty)} $_selectedUnit'),
                 _summaryRow('Returned Quantity', '${QuantityFormatter.formatClean(retQty)} $_selectedUnit', color: AppColors.primaryLight),
-                _summaryRow('Net Dispatch', '${QuantityFormatter.formatClean(netQty)} $_selectedUnit', isBold: true, color: AppColors.secondary),
+                _summaryRow(isChoc ? 'Net Consignment' : 'Net Dispatch', '${QuantityFormatter.formatClean(netQty)} $_selectedUnit', isBold: true, color: AppColors.secondary),
                 const Divider(height: 12),
-                _summaryRow('Remaining Storage', '${QuantityFormatter.formatClean(remainingStorage)} $_selectedUnit',
+                _summaryRow(isChoc ? 'Remaining Rack' : 'Remaining Storage', '${QuantityFormatter.formatClean(remainingStorage)} $_selectedUnit',
                     isBold: true, color: remainingStorage > 0 ? AppColors.success : AppColors.danger),
               ],
             ),

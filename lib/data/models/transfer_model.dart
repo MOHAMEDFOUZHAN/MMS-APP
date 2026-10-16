@@ -32,6 +32,7 @@ class TransferModel {
   });
 
   double get netChange => returnUnits - outward;
+  DateTime get effectiveDateTime => createdAt ?? date;
 
   factory TransferModel.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic val) {

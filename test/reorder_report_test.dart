@@ -7,6 +7,7 @@ import 'package:mms_app/presentation/providers/app_providers.dart';
 import 'package:mms_app/presentation/reports/reorder_report.dart';
 
 class MockMaterialsRepositoryForReorder extends Fake implements MaterialsRepository {
+  @override
   Future<List<MaterialModel>> fetchMaterials({
     String? search,
     String? category,
@@ -42,6 +43,7 @@ class MockMaterialsRepositoryForReorder extends Fake implements MaterialsReposit
     return list;
   }
 
+  @override
   Future<List<String>> fetchCategories() async => ['Raw Material', 'Packaging'];
 }
 

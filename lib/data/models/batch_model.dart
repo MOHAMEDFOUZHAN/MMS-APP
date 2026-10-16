@@ -12,10 +12,12 @@ class BatchModel {
   final String uom;
   final String department;
   final String grade;
+  final String? rackLocation;
   final DateTime? expiryDate;
   final DateTime? receivedDate;
   final DateTime? receivedAt;
   final int? invoiceId;
+  final int? ocrLedgerId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -33,10 +35,12 @@ class BatchModel {
     this.uom = 'kg',
     this.department = 'Finished Goods',
     this.grade = 'STANDARD',
+    this.rackLocation,
     this.expiryDate,
     this.receivedDate,
     this.receivedAt,
     this.invoiceId,
+    this.ocrLedgerId,
     this.createdAt,
     this.updatedAt,
   });
@@ -85,10 +89,12 @@ class BatchModel {
       uom: json['uom']?.toString() ?? 'kg',
       department: json['department']?.toString() ?? 'Finished Goods',
       grade: json['grade']?.toString() ?? 'STANDARD',
+      rackLocation: json['rack_location']?.toString(),
       expiryDate: parseDate(json['expiry_date']),
       receivedDate: parseDate(json['received_date']),
       receivedAt: parseTimestamp(json['received_at']) ?? parseTimestamp(json['created_at']),
       invoiceId: (json['invoice_id'] as num?)?.toInt(),
+      ocrLedgerId: (json['ocr_ledger_id'] as num?)?.toInt(),
       createdAt: parseTimestamp(json['created_at']),
       updatedAt: parseTimestamp(json['updated_at']),
     );
@@ -108,10 +114,12 @@ class BatchModel {
       'uom': uom,
       'department': department,
       'grade': grade,
+      if (rackLocation != null && rackLocation!.isNotEmpty) 'rack_location': rackLocation,
       if (expiryDate != null) 'expiry_date': expiryDate?.toIso8601String().split('T')[0],
       if (receivedDate != null) 'received_date': receivedDate?.toIso8601String().split('T')[0],
       if (receivedAt != null) 'received_at': receivedAt?.toUtc().toIso8601String(),
       if (invoiceId != null) 'invoice_id': invoiceId,
+      if (ocrLedgerId != null) 'ocr_ledger_id': ocrLedgerId,
     };
   }
 
@@ -129,10 +137,12 @@ class BatchModel {
     String? uom,
     String? department,
     String? grade,
+    String? rackLocation,
     DateTime? expiryDate,
     DateTime? receivedDate,
     DateTime? receivedAt,
     int? invoiceId,
+    int? ocrLedgerId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -150,10 +160,12 @@ class BatchModel {
       uom: uom ?? this.uom,
       department: department ?? this.department,
       grade: grade ?? this.grade,
+      rackLocation: rackLocation ?? this.rackLocation,
       expiryDate: expiryDate ?? this.expiryDate,
       receivedDate: receivedDate ?? this.receivedDate,
       receivedAt: receivedAt ?? this.receivedAt,
       invoiceId: invoiceId ?? this.invoiceId,
+      ocrLedgerId: ocrLedgerId ?? this.ocrLedgerId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -47,7 +47,7 @@ class UserProfileRepository {
       return UserProfileModel(
         id: user.id,
         username: 'owner',
-        fullName: 'System Owner',
+        fullName: 'Management',
         role: 'OWNER',
         permissions: const ['owner.*', '*'],
       );
@@ -60,6 +60,32 @@ class UserProfileRepository {
         fullName: 'Administrator',
         role: 'ADMIN',
         permissions: const ['*'],
+      );
+    }
+
+    final isChocolate = username == 'chocolate' ||
+        username == 'cho' ||
+        username == 'choco' ||
+        user.email == 'chocolate@benchmarkmms.com' ||
+        role == 'CHOCOLATE_USER' ||
+        role == 'CHOCOLATE' ||
+        metaUsername == 'chocolate' ||
+        metaUsername == 'cho';
+
+    if (isChocolate) {
+      return UserProfileModel(
+        id: user.id,
+        username: 'chocolate',
+        fullName: 'Benchmark Chocolate Department',
+        role: 'CHOCOLATE_USER',
+        permissions: const [
+          'chocolate.*',
+          'ocr.*',
+          'storage.*',
+          'dispatch.*',
+          'consign.*',
+          'notifications.view'
+        ],
       );
     }
 

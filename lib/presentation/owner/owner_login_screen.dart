@@ -17,7 +17,7 @@ class OwnerLoginScreen extends ConsumerStatefulWidget {
 
 class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'owner');
+  final _emailController = TextEditingController(text: 'bm');
   final _passwordController = TextEditingController();
   final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
@@ -59,7 +59,7 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
       );
     } else {
       final error = ref.read(ownerAuthNotifierProvider).errorMessage ??
-          'Access Denied: Verification failed. Authorized owner access only.';
+          'Access Denied: Verification failed. Authorized management access only.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -167,57 +167,58 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                     constraints: BoxConstraints(
                       minHeight: screenHeight,
                     ),
-                    child: IntrinsicHeight(
-                      child: Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: horizontalScreenPadding,
-                            vertical: verticalScreenPadding,
-                          ),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 420),
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Executive Seal Badge
-                                  Center(
-                                    child: Container(
-                                      width: badgeSize,
-                                      height: badgeSize,
-                                      padding: EdgeInsets.all(isCompactHeight ? 10 : 14),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFF1F2937), Color(0xFF111827)],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        border: Border.all(
-                                          color: const Color(0xFFD97706).withValues(alpha: 0.6),
-                                          width: 1.5,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFFD97706).withValues(alpha: 0.2),
-                                            blurRadius: 24,
-                                            spreadRadius: 2,
-                                          ),
-                                        ],
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalScreenPadding,
+                          vertical: verticalScreenPadding,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 420),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Executive Seal Badge
+                                Center(
+                                  child: Container(
+                                    width: badgeSize,
+                                    height: badgeSize,
+                                    padding: EdgeInsets.all(isCompactHeight ? 10 : 14),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF1F2937), Color(0xFF111827)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
                                       ),
-                                      child: Icon(
-                                        Icons.admin_panel_settings_rounded,
-                                        color: const Color(0xFFF59E0B),
-                                        size: badgeIconSize,
+                                      border: Border.all(
+                                        color: const Color(0xFFD97706).withValues(alpha: 0.6),
+                                        width: 1.5,
                                       ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFD97706).withValues(alpha: 0.2),
+                                          blurRadius: 24,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.admin_panel_settings_rounded,
+                                      color: const Color(0xFFF59E0B),
+                                      size: badgeIconSize,
                                     ),
                                   ),
-                                  SizedBox(height: titleGap),
+                                ),
+                                SizedBox(height: titleGap),
 
-                                  // Title
-                                  Text(
+                                // Title
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
                                     'BENCHMARK MMS',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.inter(
@@ -227,18 +228,22 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                                       color: const Color(0xFFF3F4F6),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'OWNER ACCESS',
+                                ),
+                                const SizedBox(height: 6),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    'MANAGEMENT ACCESS',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.inter(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
-                                      letterSpacing: 3.5,
+                                      letterSpacing: isCompactWidth ? 2.0 : 3.5,
                                       color: const Color(0xFFF59E0B),
                                     ),
                                   ),
-                                  SizedBox(height: formGap),
+                                ),
+                                SizedBox(height: formGap),
 
                                   // Executive Glass Form Card
                                   Container(
@@ -262,26 +267,30 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
                                         // Email / ID Field
-                                        Text(
-                                          'OWNER IDENTIFIER',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 1.2,
-                                            color: const Color(0xFF9CA3AF),
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            'MANAGEMENT USERNAME / ID',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 1.0,
+                                              color: const Color(0xFF9CA3AF),
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: 8),
                                         TextFormField(
                                           controller: _emailController,
-                                          keyboardType: TextInputType.emailAddress,
+                                          keyboardType: TextInputType.text,
                                           textInputAction: TextInputAction.next,
                                           onFieldSubmitted: (_) {
                                             FocusScope.of(context).requestFocus(_passwordFocusNode);
                                           },
                                           style: const TextStyle(color: Colors.white, fontSize: 14),
                                           decoration: InputDecoration(
-                                            hintText: 'owner or owner@benchmarkmms.com',
+                                            hintText: 'bm',
                                             hintStyle: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
                                             prefixIcon: const Icon(Icons.person_outline, size: 20, color: Color(0xFF9CA3AF)),
                                             filled: true,
@@ -311,7 +320,7 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                                           ),
                                           validator: (val) {
                                             if (val == null || val.trim().isEmpty) {
-                                              return 'Please enter owner email or ID';
+                                              return 'Please enter username or ID';
                                             }
                                             return null;
                                           },
@@ -319,13 +328,17 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                                         SizedBox(height: fieldGap),
 
                                         // Password Field
-                                        Text(
-                                          'PASSWORD',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 1.2,
-                                            color: const Color(0xFF9CA3AF),
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            'PASSWORD',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 1.0,
+                                              color: const Color(0xFF9CA3AF),
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: 8),
@@ -412,21 +425,24 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                                                     ),
                                                   )
-                                                : Row(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      const Icon(Icons.lock_open_rounded, size: 18, color: Colors.black),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        'SIGN IN',
-                                                        style: GoogleFonts.inter(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w800,
-                                                          letterSpacing: 1.5,
-                                                          color: Colors.black,
+                                                : FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Row(
+                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                      children: [
+                                                        const Icon(Icons.lock_open_rounded, size: 18, color: Colors.black),
+                                                        const SizedBox(width: 8),
+                                                        Text(
+                                                          'SIGN IN',
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 13,
+                                                            fontWeight: FontWeight.w800,
+                                                            letterSpacing: 1.5,
+                                                            color: Colors.black,
+                                                          ),
                                                         ),
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
                                           ),
                                         ),
@@ -437,19 +453,20 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
 
                                   // Mandatory Security Message (No emojis, wrap-safe)
                                   Center(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.verified_user_outlined,
-                                          size: 14,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            'Authorized owner access only.',
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.verified_user_outlined,
+                                            size: 14,
+                                            color: Color(0xFF9CA3AF),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Authorized management access only.',
                                             textAlign: TextAlign.center,
                                             style: GoogleFonts.inter(
                                               fontSize: 12,
@@ -457,8 +474,8 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                                               color: const Color(0xFF9CA3AF),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                   SizedBox(height: isCompactHeight ? 12 : 20),
@@ -494,9 +511,8 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
             ),
           ),
         ],

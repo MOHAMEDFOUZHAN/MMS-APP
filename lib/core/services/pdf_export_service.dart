@@ -8,6 +8,7 @@ import '../../data/models/invoice_model.dart';
 import '../../data/models/material_model.dart';
 import '../../data/models/report_models.dart';
 import '../../data/models/transfer_model.dart';
+import '../../data/models/tea_material_received_model.dart';
 import '../formatters/app_date_formatter.dart';
 import '../formatters/quantity_formatter.dart';
 
@@ -476,6 +477,127 @@ class PdfExportService {
   }
 
   /// =========================================================================
+  /// LIVE MATERIAL STOCK REPORT (A4 Landscape - Category-filtered & All)
+  /// =========================================================================
+  static Future<void> printLiveMaterialReport(
+    List<MaterialModel> materials, {
+    String? category,
+    String? searchQuery,
+    String? grade,
+    String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+    bool share = false,
+  }) async {
+    final pdf = pw.Document();
+
+    final categoryLabel = (category != null && category.isNotEmpty && category != 'All')
+        ? 'Category: $category'
+        : 'All Categories';
+
+    final List<String> filterTags = [];
+    filterTags.add(categoryLabel);
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      filterTags.add('Search: "${searchQuery.trim()}"');
+    }
+    if (grade != null && grade.isNotEmpty && grade != 'All') {
+      filterTags.add('Grade: $grade');
+    }
+    if (status != null && status.isNotEmpty && status != 'all') {
+      filterTags.add('Status: ${status.replaceAll('_', ' ').toUpperCase()}');
+    }
+    if (fromDate != null && toDate != null) {
+      filterTags.add('Period: ${QuantityFormatter.formatDate(fromDate)} to ${QuantityFormatter.formatDate(toDate)}');
+    }
+
+    final subtitle = filterTags.join('  •  ');
+
+    final headers = [
+      'Code',
+      'Material Description',
+      'Category',
+      'Unit',
+      'Opening',
+      'Inward (+)',
+      'Transfer (-)',
+      'Return (+)',
+      'Closing Stock',
+      'Reorder',
+    ];
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        header: (context) => _buildReportHeader('Live Material Stock Report', subtitle: subtitle),
+        build: (context) => [
+          pw.TableHelper.fromTextArray(
+            headers: headers,
+            data: materials.map((m) {
+              return [
+                m.materialCode,
+                m.description.isNotEmpty ? m.description : '-',
+                m.category,
+                m.unit,
+                QuantityFormatter.formatClean(m.openingStock),
+                QuantityFormatter.formatClean(m.purchased),
+                QuantityFormatter.formatClean(m.transferOut),
+                QuantityFormatter.formatClean(m.returnIn),
+                QuantityFormatter.formatClean(m.closingStock),
+                m.reorderLevel > 0 ? QuantityFormatter.formatClean(m.reorderLevel) : '—',
+              ];
+            }).toList(),
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 8.5),
+            headerDecoration: const pw.BoxDecoration(color: _tableHeaderBg),
+            rowDecoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: _borderGrey, width: 0.5))),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {
+              0: pw.Alignment.center,
+              1: pw.Alignment.centerLeft,
+              2: pw.Alignment.centerLeft,
+              3: pw.Alignment.center,
+              4: pw.Alignment.centerRight,
+              5: pw.Alignment.centerRight,
+              6: pw.Alignment.centerRight,
+              7: pw.Alignment.centerRight,
+              8: pw.Alignment.centerRight,
+              9: pw.Alignment.centerRight,
+            },
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
+          ),
+          pw.SizedBox(height: 10),
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey100,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+              border: pw.Border.all(color: _borderGrey, width: 0.5),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('Total Items: ${materials.length}',
+                    style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                pw.Text('Report Scope: $categoryLabel',
+                    style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)),
+              ],
+            ),
+          ),
+        ],
+        footer: (context) => _buildCleanFooter(context, 'Benchmark MMS • Live Material Stock Report'),
+      ),
+    );
+
+    final cleanCat = (category != null && category.isNotEmpty && category != 'All')
+        ? category.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')
+        : 'All_Categories';
+    final filename = 'Live_Material_Stock_${cleanCat}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    await _outputPdf(pdf, filename, share: share);
+  }
+
+  /// =========================================================================
   /// 6. REORDER LEVEL REPORT
   /// =========================================================================
   static Future<void> printReorderReport(List<MaterialModel> rows, {bool share = false}) async {
@@ -611,7 +733,7 @@ class PdfExportService {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(24),
-        header: (context) => _buildReportHeader('Out of Stock / Depleted Materials Report'),
+        header: (context) => _buildReportHeader('Out of Stock Materials Report'),
         build: (context) => [
           pw.TableHelper.fromTextArray(
             headers: ['Code', 'Description', 'Category', 'Stock', 'Unit', 'Reorder Level', 'Lot No'],
@@ -866,6 +988,83 @@ class PdfExportService {
         ],
       ),
     );
+  }
+
+  /// =========================================================================
+  /// TEA MATERIAL RECEIVED LIVE STOCK LEDGER PDF (A4 Landscape)
+  /// =========================================================================
+  static Future<void> printTeaMaterialReceivedLedger(List<TeaMaterialReceivedModel> items, {bool share = false}) async {
+    final pdf = pw.Document();
+
+    final tableData = <List<String>>[
+      ['Code', 'Description', 'Category', 'Unit', 'Received', 'Consumed', 'Returned', 'Available', 'Status', 'Latest Tx'],
+      ...items.map((it) => [
+        it.materialCode,
+        it.description,
+        it.category,
+        it.unit,
+        QuantityFormatter.formatClean(it.totalReceived),
+        QuantityFormatter.formatClean(it.totalConsumed),
+        QuantityFormatter.formatClean(it.totalReturned),
+        QuantityFormatter.formatClean(it.currentBalance),
+        it.stockStatus.replaceAll('_', ' '),
+        it.latestTransactionAt != null ? AppDateFormatter.format(it.latestTransactionAt) : '-',
+      ]),
+    ];
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        header: (context) => _buildReportHeader('TEA DEPARTMENT • LIVE STOCK LEDGER', subtitle: 'Material Received, Consumption & Confirmed Returns'),
+        build: (context) => [
+          pw.TableHelper.fromTextArray(
+            headers: tableData[0],
+            data: tableData.sublist(1),
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 8.5),
+            headerDecoration: const pw.BoxDecoration(color: _tableHeaderBg),
+            rowDecoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: _borderGrey, width: 0.5))),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {
+              0: pw.Alignment.centerLeft,
+              1: pw.Alignment.centerLeft,
+              2: pw.Alignment.centerLeft,
+              3: pw.Alignment.center,
+              4: pw.Alignment.centerRight,
+              5: pw.Alignment.centerRight,
+              6: pw.Alignment.centerRight,
+              7: pw.Alignment.centerRight,
+              8: pw.Alignment.center,
+              9: pw.Alignment.center,
+            },
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
+          ),
+          pw.SizedBox(height: 10),
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey100,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+              border: pw.Border.all(color: _borderGrey, width: 0.5),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('Total Materials: ${items.length}',
+                    style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                pw.Text('Report Date: ${AppDateFormatter.formatWithTime(DateTime.now())}',
+                    style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)),
+              ],
+            ),
+          ),
+        ],
+        footer: (context) => _buildCleanFooter(context, 'Benchmark MMS • Tea Department Stock Ledger'),
+      ),
+    );
+
+    final filename = 'Tea_Material_Received_Ledger_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    await _outputPdf(pdf, filename, share: share);
   }
 
   static pw.Widget _buildCleanFooter(pw.Context context, String label) {

@@ -87,6 +87,7 @@ class InvoiceModel {
   final DateTime date;
   final String invoiceNo;
   final String vendor;
+  final String brand;
   final int noOfItems;
   final double totalExclTax;
   final double totalGst;
@@ -107,6 +108,7 @@ class InvoiceModel {
     required this.date,
     required this.invoiceNo,
     this.vendor = '',
+    this.brand = '',
     this.noOfItems = 1,
     this.totalExclTax = 0.0,
     this.totalGst = 0.0,
@@ -121,6 +123,8 @@ class InvoiceModel {
     this.createdAt,
     this.items = const [],
   });
+
+  DateTime get effectiveDateTime => createdAt ?? date;
 
   factory InvoiceModel.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic val) {
@@ -144,6 +148,7 @@ class InvoiceModel {
       date: parseDate(json['date']),
       invoiceNo: json['invoice_no']?.toString() ?? '',
       vendor: json['vendor']?.toString() ?? '',
+      brand: json['brand']?.toString() ?? '',
       noOfItems: (json['no_of_items'] as num?)?.toInt() ?? 1,
       totalExclTax: (json['total_excl_tax'] as num?)?.toDouble() ?? 0.0,
       totalGst: (json['total_gst'] as num?)?.toDouble() ?? 0.0,
@@ -166,6 +171,7 @@ class InvoiceModel {
       'date': date.toIso8601String().split('T')[0],
       'invoice_no': invoiceNo,
       'vendor': vendor,
+      'brand': brand,
       'no_of_items': noOfItems,
       'total_excl_tax': totalExclTax,
       'total_gst': totalGst,

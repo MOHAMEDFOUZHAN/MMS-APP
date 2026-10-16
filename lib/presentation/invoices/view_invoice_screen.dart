@@ -149,9 +149,38 @@ class _ViewInvoiceScreenState extends ConsumerState<ViewInvoiceScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          inv.vendor,
-                          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                inv.vendor.isNotEmpty ? inv.vendor : 'Vendor: Not Specified',
+                                style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                              ),
+                            ),
+                            if (inv.brand.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.secondary.withValues(alpha: 0.4)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.branding_watermark_outlined, size: 12, color: AppColors.secondary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Brand: ${inv.brand}',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.secondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 6),
                         Row(

@@ -35,7 +35,7 @@ class InvoicesRepository {
 
       if (search != null && search.trim().isNotEmpty) {
         final term = TextStandardizer.collapseSpaces(search);
-        query = query.or('invoice_no.ilike.%$term%,vendor.ilike.%$term%,purchase_id.ilike.%$term%');
+        query = query.or('invoice_no.ilike.%$term%,vendor.ilike.%$term%,brand.ilike.%$term%,purchase_id.ilike.%$term%');
       }
 
       final response = await query
@@ -83,6 +83,9 @@ class InvoicesRepository {
     }
     if (cleanInvoice['vendor'] != null) {
       cleanInvoice['vendor'] = TextStandardizer.normalizeBusinessText(cleanInvoice['vendor'].toString());
+    }
+    if (cleanInvoice['brand'] != null) {
+      cleanInvoice['brand'] = TextStandardizer.normalizeBusinessText(cleanInvoice['brand'].toString());
     }
     if (cleanInvoice['purchase_id'] != null) {
       cleanInvoice['purchase_id'] = TextStandardizer.normalizeBusinessText(cleanInvoice['purchase_id'].toString());
@@ -140,7 +143,14 @@ class InvoicesRepository {
         'p_idempotency_key': idKey,
       });
 
-      return Map<String, dynamic>.from(response as Map);
+      final result = Map<String, dynamic>.from(response as Map);
+      if (cleanInvoice['brand'] != null && result['invoice_id'] != null) {
+        try {
+          await _client.from('invoices').update({'brand': cleanInvoice['brand']}).eq('id', result['invoice_id']);
+        } catch (_) {}
+      }
+
+      return result;
     } catch (e) {
       debugPrint('createPurchaseInvoice network failure: $e');
       final errorStr = e.toString();
@@ -178,6 +188,9 @@ class InvoicesRepository {
       if (cleanInvoice['vendor'] != null) {
         cleanInvoice['vendor'] = TextStandardizer.normalizeBusinessText(cleanInvoice['vendor'].toString());
       }
+      if (cleanInvoice['brand'] != null) {
+        cleanInvoice['brand'] = TextStandardizer.normalizeBusinessText(cleanInvoice['brand'].toString());
+      }
       if (cleanInvoice['purchase_id'] != null) {
         cleanInvoice['purchase_id'] = TextStandardizer.normalizeBusinessText(cleanInvoice['purchase_id'].toString());
       }
@@ -204,6 +217,12 @@ class InvoicesRepository {
         'p_invoice': cleanInvoice,
         'p_items': cleanItems,
       });
+
+      if (cleanInvoice['brand'] != null) {
+        try {
+          await _client.from('invoices').update({'brand': cleanInvoice['brand']}).eq('id', invoiceId);
+        } catch (_) {}
+      }
 
       return Map<String, dynamic>.from(response as Map);
     } catch (e) {

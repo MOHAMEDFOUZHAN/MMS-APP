@@ -141,7 +141,7 @@ class _OutOfStockReportState extends ConsumerState<OutOfStockReport> {
 
                   if (list.isEmpty) {
                     return const EmptyStateWidget(
-                      title: 'No Depleted Stock',
+                      title: 'No Out of Stock Materials',
                       message: 'All inventory items currently have stock available.',
                     );
                   }
@@ -154,7 +154,7 @@ class _OutOfStockReportState extends ConsumerState<OutOfStockReport> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '${list.length} Items Completely Depleted',
+                              '${list.length} Items Out of Stock',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.danger),
                             ),
                             TextButton.icon(

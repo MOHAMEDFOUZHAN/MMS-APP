@@ -27,12 +27,14 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   DateTime? _toDate;
 
   Future<void> _deleteDispatch(DispatchModel d) async {
+    final isChoc = ref.read(isChocolateUserProvider);
     final confirmed = await ConfirmationDialog.show(
       context,
-      title: 'Reverse & Delete Dispatch #${d.id}?',
-      message:
-          'This will atomically restore the exact dispatched quantities back to their respective original Storage batches (${d.allocations.map((a) => "${a.batchNo}: ${QuantityFormatter.formatClean(a.quantity)} ${d.units}").join(", ")}). Are you sure?',
-      confirmText: 'Yes, Restore Storage Batches & Delete',
+      title: isChoc ? 'Reverse & Delete Consignment #${d.id}?' : 'Reverse & Delete Dispatch #${d.id}?',
+      message: isChoc
+          ? 'This will atomically restore the exact consigned quantities back to their respective original Rack batches (${d.allocations.map((a) => "${a.batchNo}: ${QuantityFormatter.formatClean(a.quantity)} ${d.units}").join(", ")}). Are you sure?'
+          : 'This will atomically restore the exact dispatched quantities back to their respective original Storage batches (${d.allocations.map((a) => "${a.batchNo}: ${QuantityFormatter.formatClean(a.quantity)} ${d.units}").join(", ")}). Are you sure?',
+      confirmText: isChoc ? 'Yes, Restore Rack Batches & Delete' : 'Yes, Restore Storage Batches & Delete',
       isDestructive: true,
     );
 
@@ -49,7 +51,9 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Dispatch #${d.id} reversed and stock restored to Storage batches!'),
+            content: Text(isChoc
+                ? 'Consignment #${d.id} reversed and stock restored to Rack batches!'
+                : 'Dispatch #${d.id} reversed and stock restored to Storage batches!'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),
@@ -70,6 +74,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
 
   /// Dedicated Read-Only View Dispatch Screen/Dialog
   void _viewDispatchDetails(DispatchModel d) {
+    final isChoc = ref.read(isChocolateUserProvider);
     showDialog(
       context: context,
       builder: (context) {
@@ -96,11 +101,11 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Dispatch Record',
+                      isChoc ? 'Consignment Record' : 'Dispatch Record',
                       style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
                     ),
                     Text(
-                      'Storage Stock-Out Details (Read-Only)',
+                      isChoc ? 'Rack Consignment Details (Read-Only)' : 'Storage Stock-Out Details (Read-Only)',
                       style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
                     ),
                   ],
@@ -125,18 +130,22 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                     ),
                     child: Column(
                       children: [
-                        _detailRow('Dispatch Date', AppDateFormatter.format(d.date)),
-                        _detailRow('Dispatch Time', AppDateFormatter.formatTime(d.effectiveDateTime)),
-                        _detailRow('Product Code', d.materialCode, isMono: true, color: AppColors.secondary),
+                        _detailRow(isChoc ? 'Consignment Date' : 'Dispatch Date', AppDateFormatter.format(d.date)),
+                        _detailRow(isChoc ? 'Consignment Time' : 'Dispatch Time', AppDateFormatter.formatTime(d.effectiveDateTime)),
+                        if (!isChoc)
+                          _detailRow('Product Code', d.materialCode, isMono: true, color: AppColors.secondary),
                         _detailRow('Description', d.product.isNotEmpty ? d.product : d.materialCode),
                         if (d.category.isNotEmpty) _detailRow('Category', d.category),
                         if (d.grade.isNotEmpty && d.grade != 'STANDARD') _detailRow('Grade', d.grade),
-                        _detailRow('Dispatch Quantity', '${QuantityFormatter.formatClean(d.quantity)} ${d.units}'),
+                        if (d.ocrLedgerId != null)
+                          _detailRow('OCR Origin', 'Scan #${d.ocrLedgerId} (Verified)', color: const Color(0xFFF59E0B)),
+                        _detailRow(isChoc ? 'Consignment Quantity' : 'Dispatch Quantity', '${QuantityFormatter.formatClean(d.quantity)} ${d.units}'),
                         if (d.returnQuantity > 0)
                           _detailRow('Return Quantity', '${QuantityFormatter.formatClean(d.returnQuantity)} ${d.units}', color: AppColors.primaryLight),
-                        _detailRow('Net Dispatch', '${QuantityFormatter.formatClean(d.netQuantity)} ${d.units}', isBold: true, color: AppColors.secondary),
+                        _detailRow(isChoc ? 'Net Consignment' : 'Net Dispatch', '${QuantityFormatter.formatClean(d.netQuantity)} ${d.units}', isBold: true, color: AppColors.secondary),
                         _detailRow('UOM', d.units),
-                        _detailRow('Department', d.department.isNotEmpty ? d.department : 'Dispatch'),
+                        if (!isChoc)
+                          _detailRow('Department', d.department.isNotEmpty ? d.department : 'Dispatch'),
                         if (d.location.isNotEmpty) _detailRow('Destination / Location', d.location),
                         if (d.remarks.isNotEmpty) _detailRow('Remarks', d.remarks),
                         if (d.createdAt != null) _detailRow('Created At', AppDateFormatter.formatWithTime(d.createdAt!)),
@@ -148,7 +157,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
 
                   // Batch Allocation Breakdown
                   Text(
-                    'Storage Batch Allocations (${d.allocations.length}):',
+                    isChoc ? 'Rack Batch Allocations (${d.allocations.length}):' : 'Storage Batch Allocations (${d.allocations.length}):',
                     style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
                   ),
                   const SizedBox(height: 8),
@@ -247,7 +256,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               icon: const Icon(Icons.edit_outlined, size: 14),
-              label: const Text('Edit Dispatch'),
+              label: Text(isChoc ? 'Edit Consignment' : 'Edit Dispatch'),
               onPressed: () {
                 Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => AddDispatchScreen(existingDispatch: d)));
@@ -305,13 +314,14 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     );
     final dispatchesAsync = ref.watch(dispatchesListProvider(filter));
     final isTablet = ResponsiveBreakpoints.isTabletOrLarger(context);
+    final isChoc = ref.watch(isChocolateUserProvider);
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.secondary,
+        backgroundColor: isChoc ? const Color(0xFFD97706) : AppColors.secondary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('Record Dispatch'),
+        label: Text(isChoc ? 'Record Consignment' : 'Record Dispatch'),
         onPressed: () {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDispatchScreen()));
         },
@@ -320,7 +330,9 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         child: Column(
           children: [
             GlobalSearchFilterBar(
-              hintText: 'Search by Material Code, Description, Category, Location...',
+              hintText: isChoc
+                  ? 'Search by Description, Category, Location...'
+                  : 'Search by Material Code, Description, Category, Location...',
               initialSearch: _search,
               initialFromDate: _fromDate,
               initialToDate: _toDate,
@@ -330,10 +342,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.print_rounded, color: AppColors.primaryLight, size: 20),
-                      tooltip: 'Print Dispatches Register (PDF)',
+                      tooltip: isChoc ? 'Print Consignment Register (PDF)' : 'Print Dispatches Register (PDF)',
                       onPressed: () {
                         if (list.isNotEmpty) {
-                          String subtitle = 'Dispatches Register';
+                          String subtitle = isChoc ? 'Chocolate Consignment Register' : 'Dispatches Register';
                           if (_fromDate != null || _toDate != null) {
                             subtitle += ' | Range: ${_fromDate != null ? AppDateFormatter.format(_fromDate) : "Start"} - ${_toDate != null ? AppDateFormatter.format(_toDate) : "End"}';
                           }
@@ -346,10 +358,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.share_rounded, color: AppColors.accent, size: 20),
-                      tooltip: 'Share Dispatches Register',
+                      tooltip: isChoc ? 'Share Consignment Register' : 'Share Dispatches Register',
                       onPressed: () {
                         if (list.isNotEmpty) {
-                          String subtitle = 'Dispatches Register';
+                          String subtitle = isChoc ? 'Chocolate Consignment Register' : 'Dispatches Register';
                           if (_fromDate != null || _toDate != null) {
                             subtitle += ' | Range: ${_fromDate != null ? AppDateFormatter.format(_fromDate) : "Start"} - ${_toDate != null ? AppDateFormatter.format(_toDate) : "End"}';
                           }
@@ -385,17 +397,19 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                 loading: () => const LoadingSkeletonList(count: 6),
                 error: (err, _) => Center(
                   child: EmptyStateWidget(
-                    title: 'Error loading dispatches',
+                    title: isChoc ? 'Error loading consignments' : 'Error loading dispatches',
                     message: err.toString(),
                   ),
                 ),
                 data: (dispatches) {
                   if (dispatches.isEmpty) {
                     return EmptyStateWidget(
-                      icon: Icons.local_shipping_outlined,
-                      title: 'No dispatches recorded',
-                      message: 'Record outward stock deductions directly from available Storage batches in FIFO sequence.',
-                      actionLabel: '+ Record First Dispatch',
+                      icon: isChoc ? Icons.inventory_2_outlined : Icons.local_shipping_outlined,
+                      title: isChoc ? 'No consignments recorded' : 'No dispatches recorded',
+                      message: isChoc
+                          ? 'Record outward chocolate stock deductions directly from available Chocolate Rack batches in FIFO sequence.'
+                          : 'Record outward stock deductions directly from available Storage batches in FIFO sequence.',
+                      actionLabel: isChoc ? '+ Record First Consignment' : '+ Record First Dispatch',
                       onAction: () {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDispatchScreen()));
                       },
@@ -413,6 +427,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   }
 
   Widget _buildDesktopTable(List<DispatchModel> dispatches) {
+    final isChoc = ref.watch(isChocolateUserProvider);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
       child: GlassCard(
@@ -425,18 +440,19 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
               headingRowColor: WidgetStateProperty.all(const Color(0x33020617)),
               horizontalMargin: 16,
               columnSpacing: 18,
-              columns: const [
-                DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Stock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Return Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Net Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Units', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              columns: [
+                const DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Batch No', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Stock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Return Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Net Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Units', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                if (!isChoc)
+                  const DataColumn(label: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                const DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
               ],
               rows: dispatches.map((d) {
                 return DataRow(
@@ -477,7 +493,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (d.materialCode.isNotEmpty && d.materialCode != d.product)
+                          if (!isChoc && d.materialCode.isNotEmpty && d.materialCode != d.product)
                             Text(
                               d.materialCode,
                               style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AppColors.primaryLight),
@@ -514,7 +530,8 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                         child: Text(d.location.isNotEmpty ? d.location : '-', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       ),
                     ),
-                    DataCell(Text(d.department.isNotEmpty ? d.department : 'Dispatch', style: const TextStyle(fontSize: 12))),
+                    if (!isChoc)
+                      DataCell(Text(d.department.isNotEmpty ? d.department : 'Dispatch', style: const TextStyle(fontSize: 12))),
                     DataCell(
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -550,6 +567,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   }
 
   Widget _buildMobileList(List<DispatchModel> dispatches) {
+    final isChoc = ref.watch(isChocolateUserProvider);
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
       itemCount: dispatches.length,
@@ -574,7 +592,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            'DISPATCH',
+                            isChoc ? 'CONSIGNMENT' : 'DISPATCH',
                             style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.secondary),
                           ),
                         ),
@@ -583,6 +601,25 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                           '${AppDateFormatter.format(d.date)} • ${AppDateFormatter.formatTime(d.effectiveDateTime)}',
                           style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                         ),
+                        if (d.ocrLedgerId != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.document_scanner_rounded, size: 10, color: Color(0xFFF59E0B)),
+                                SizedBox(width: 3),
+                                Text('OCR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B))),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     IconButton(
@@ -595,18 +632,20 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
+                    if (!isChoc) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          d.materialCode,
+                          style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
+                        ),
                       ),
-                      child: Text(
-                        d.materialCode,
-                        style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 8),
+                    ],
                     Expanded(
                       child: Text(
                         d.displayName,
@@ -621,13 +660,16 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Dept: ${d.department.isNotEmpty ? d.department : "Dispatch"}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    if (!isChoc)
+                      Expanded(
+                        child: Text(
+                          'Dept: ${d.department.isNotEmpty ? d.department : "Dispatch"}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    else
+                      const Spacer(),
                     const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -655,7 +697,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                 ],
                 if (d.allocations.isNotEmpty) ...[
                   const Divider(height: 16),
-                  const Text('Storage Batches Consumed:', style: TextStyle(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.bold)),
+                  Text(
+                    isChoc ? 'Rack Batches Consumed:' : 'Storage Batches Consumed:',
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 6,

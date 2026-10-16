@@ -4,7 +4,9 @@ import '../../core/constants/app_colors.dart';
 
 import '../../core/formatters/quantity_formatter.dart';
 import '../../core/responsive/responsive_breakpoints.dart';
+import '../../core/services/pdf_export_service.dart';
 import '../../core/theme/glass_widgets.dart';
+import '../../data/models/material_model.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
 import '../../shared/widgets/empty_state_widget.dart';
 import '../../shared/widgets/search_bar_widget.dart';
@@ -32,13 +34,14 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
 
     if (!authorized || !mounted) return;
 
-    final created = await showDialog<bool>(
+    final created = await showDialog<dynamic>(
       context: context,
       builder: (context) => const NewMaterialDialog(),
     );
 
-    if (created == true) {
+    if (created != null && created != false) {
       ref.invalidate(materialsListProvider);
+      ref.invalidate(materialsMasterListProvider);
       ref.invalidate(categoriesProvider);
       ref.invalidate(gradesProvider);
       ref.invalidate(dashboardSummaryProvider);
@@ -85,6 +88,41 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
         ref.read(materialsFilterProvider).copyWith(clearDates: true);
   }
 
+  Future<void> _handlePrint(List<MaterialModel> materials) async {
+    if (materials.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No materials found to print for the active filters.'),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final filter = ref.read(materialsFilterProvider);
+    try {
+      await PdfExportService.printLiveMaterialReport(
+        materials,
+        category: filter.category,
+        searchQuery: filter.search,
+        grade: filter.grade,
+        status: filter.status,
+        fromDate: filter.fromDate,
+        toDate: filter.toDate,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Printing error: $e'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filter = ref.watch(materialsFilterProvider);
@@ -114,7 +152,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Search bar and master sync button
+                // Search bar, Print button and master sync button
                 Row(
                   children: [
                     Expanded(
@@ -125,6 +163,37 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                         },
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    // Print Button (Category-filtered or All)
+                    if (isTablet)
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.print_rounded, size: 18),
+                        label: const Text('Print', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent.withValues(alpha: 0.15),
+                          foregroundColor: AppColors.accent,
+                          side: const BorderSide(color: AppColors.accent, width: 1),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                        ),
+                        onPressed: () {
+                          final list = materialsAsync.valueOrNull ?? [];
+                          _handlePrint(list);
+                        },
+                      )
+                    else
+                      IconButton(
+                        icon: const Icon(Icons.print_rounded, color: AppColors.accent),
+                        tooltip: 'Print Live Material Report',
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.surface,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          final list = materialsAsync.valueOrNull ?? [];
+                          _handlePrint(list);
+                        },
+                      ),
                     const SizedBox(width: 8),
                     // Master data unit sync button
                     IconButton(

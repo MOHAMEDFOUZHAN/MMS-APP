@@ -90,6 +90,7 @@ class DispatchesRepository {
     required String department,
     String? remarks,
     required DateTime date,
+    int? ocrLedgerId,
     String? idempotencyKey,
   }) async {
     final deviceId = await DeviceIdService.getDeviceId();
@@ -98,6 +99,7 @@ class DispatchesRepository {
 
     final payload = {
       if (storageProductId != null && storageProductId > 0) 'storage_product_id': storageProductId,
+      if (ocrLedgerId != null && ocrLedgerId > 0) 'ocr_ledger_id': ocrLedgerId,
       'material_code': TextStandardizer.normalizeCode(materialCode),
       'product': TextStandardizer.normalizeBusinessText(product),
       if (category != null && category.trim().isNotEmpty)
@@ -180,10 +182,12 @@ class DispatchesRepository {
     required String department,
     String? remarks,
     required DateTime date,
+    int? ocrLedgerId,
   }) async {
     try {
       final payload = {
         if (storageProductId != null && storageProductId > 0) 'storage_product_id': storageProductId,
+        if (ocrLedgerId != null && ocrLedgerId > 0) 'ocr_ledger_id': ocrLedgerId,
         'material_code': TextStandardizer.normalizeCode(materialCode),
         'product': TextStandardizer.normalizeBusinessText(product),
         if (category != null && category.trim().isNotEmpty)

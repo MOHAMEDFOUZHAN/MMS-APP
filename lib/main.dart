@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/supabase_config.dart';
+import 'core/services/app_update_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/auth/login_screen.dart';
@@ -33,16 +34,43 @@ Future<void> main() async {
   );
 }
 
-class BenchmarkMmsApp extends StatelessWidget {
+class BenchmarkMmsApp extends StatefulWidget {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   const BenchmarkMmsApp({super.key});
 
   @override
+  State<BenchmarkMmsApp> createState() => _BenchmarkMmsAppState();
+}
+
+class _BenchmarkMmsAppState extends State<BenchmarkMmsApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    AppUpdateService.instance.startPeriodicChecks();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    AppUpdateService.instance.stopPeriodicChecks();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('>>> [AppLifecycle] App resumed, checking for OTA updates...');
+      AppUpdateService.instance.checkAndPromptUpdate();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     debugPrint('>>> RENDERING BENCHMARK MMS APP');
     return MaterialApp(
-      navigatorKey: navigatorKey,
+      navigatorKey: BenchmarkMmsApp.navigatorKey,
       title: 'Benchmark MMS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
@@ -66,7 +94,10 @@ class AuthGate extends ConsumerWidget {
 
     switch (authState.status) {
       case AuthStatus.authenticated:
-        return const HomeShell();
+        if (ref.watch(isOwnerUserProvider)) {
+          return const OwnerShellScreen();
+        }
+        return HomeShell(key: ValueKey(authState.userEmail ?? 'auth_user'));
       case AuthStatus.loading:
       case AuthStatus.initial:
       case AuthStatus.unauthenticated:

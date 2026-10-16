@@ -135,32 +135,20 @@ class _OwnerExpiringReportScreenState extends ConsumerState<OwnerExpiringReportS
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        // Source Tag Header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: const Color(0xFF334155)),
           ),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              const Text(
-                'SOURCE: INVOICE MATERIAL',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
-              ),
-              Text(
-                'Threshold: $thresholdDays Days',
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-              ),
-            ],
+          child: const Text(
+            'SOURCE: INVOICE MATERIAL',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
+
 
         if (expired.isNotEmpty) ...[
           _buildSectionHeader('EXPIRED MATERIALS (${expired.length})', AppColors.danger),
@@ -199,32 +187,20 @@ class _OwnerExpiringReportScreenState extends ConsumerState<OwnerExpiringReportS
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        // Source Tag Header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: const Color(0xFF334155)),
           ),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              const Text(
-                'SOURCE: STORAGE PRODUCT',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
-              ),
-              Text(
-                'Threshold: $thresholdDays Days',
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-              ),
-            ],
+          child: const Text(
+            'SOURCE: STORAGE PRODUCT',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
+
 
         if (expired.isNotEmpty) ...[
           _buildSectionHeader('EXPIRED STORAGE BATCHES (${expired.length})', AppColors.danger),

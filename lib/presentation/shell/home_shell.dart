@@ -30,6 +30,9 @@ import '../vendors/vendors_screen.dart';
 import '../warehouse/category_locations_screen.dart';
 import '../../features/mira/presentation/pages/mira_page.dart';
 import '../security/security_center_screen.dart';
+import '../chocolate/chocolate_ocr_screen.dart';
+import '../tea/tea_consume_screen.dart';
+import '../tea/tea_material_received_screen.dart';
 import '../../shared/widgets/maple_pro_footer.dart';
 
 // ─── Primary navigation items (bottom bar / rail) ────────────────────────────
@@ -49,28 +52,68 @@ class _PrimaryNavItem {
   });
 }
 
-// ─── Restricted Tea navigation items (3 modules only) ───────────────────────
+// ─── Restricted Tea navigation items (5 modules in required order) ─────────
+// 1. Transfer, 2. Material Received, 3. Consume, 4. Storage, 5. Dispatch
 const List<_PrimaryNavItem> _teaNav = [
   _PrimaryNavItem(
     screenIndex: 0,
-    label: 'Transfers',
+    label: 'Transfer',
     icon: Icons.swap_horiz_rounded,
     selectedIcon: Icons.swap_horiz_rounded,
     accent: AppColors.accent,
   ),
   _PrimaryNavItem(
     screenIndex: 1,
+    label: 'Material Received',
+    icon: Icons.move_to_inbox_outlined,
+    selectedIcon: Icons.move_to_inbox_rounded,
+    accent: Color(0xFF06B6D4),
+  ),
+  _PrimaryNavItem(
+    screenIndex: 2,
+    label: 'Consume',
+    icon: Icons.inventory_2_outlined,
+    selectedIcon: Icons.inventory_2_rounded,
+    accent: Color(0xFF10B981),
+  ),
+  _PrimaryNavItem(
+    screenIndex: 3,
     label: 'Storage',
     icon: Icons.layers_outlined,
     selectedIcon: Icons.layers_rounded,
     accent: AppColors.primaryLight,
   ),
   _PrimaryNavItem(
-    screenIndex: 2,
+    screenIndex: 4,
     label: 'Dispatch',
     icon: Icons.local_shipping_outlined,
     selectedIcon: Icons.local_shipping_rounded,
     accent: AppColors.secondary,
+  ),
+];
+
+// ─── Restricted Chocolate navigation items (3 modules: OCR, Rack, Consign) ──
+const List<_PrimaryNavItem> _chocolateNav = [
+  _PrimaryNavItem(
+    screenIndex: 0,
+    label: 'OCR',
+    icon: Icons.document_scanner_outlined,
+    selectedIcon: Icons.document_scanner_rounded,
+    accent: Color(0xFFD97706),
+  ),
+  _PrimaryNavItem(
+    screenIndex: 1,
+    label: 'Rack',
+    icon: Icons.shelves,
+    selectedIcon: Icons.shelves,
+    accent: Color(0xFFF59E0B),
+  ),
+  _PrimaryNavItem(
+    screenIndex: 2,
+    label: 'Consign',
+    icon: Icons.local_shipping_outlined,
+    selectedIcon: Icons.local_shipping_rounded,
+    accent: Color(0xFFD97706),
   ),
 ];
 
@@ -181,6 +224,18 @@ const List<_SecondaryNavItem> _secondaryNav = [
   ),
   _SecondaryNavItem(
     screenIndex: null,
+    label: 'Tea Material Received',
+    icon: Icons.move_to_inbox_outlined,
+    accent: Color(0xFF06B6D4),
+  ),
+  _SecondaryNavItem(
+    screenIndex: null,
+    label: 'Tea Consumption',
+    icon: Icons.inventory_2_outlined,
+    accent: Color(0xFF10B981),
+  ),
+  _SecondaryNavItem(
+    screenIndex: null,
     label: 'Security Center',
     icon: Icons.shield_outlined,
     accent: Color(0xFF10B981),
@@ -203,13 +258,23 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
-  int _teaCurrentIndex = 0; // 0: Transfers, 1: Storage, 2: Dispatch
+  int _teaCurrentIndex = 0; // 0: Transfer, 1: Material Received, 2: Consume, 3: Storage, 4: Dispatch
+  int _chocolateCurrentIndex = 0; // 0: OCR, 1: Rack, 2: Consign
 
-  // Dedicated 3 screens for Tea department
+  // Dedicated 5 screens for Tea department (Transfer, Material Received, Consume, Storage, Dispatch)
   late final List<Widget> _teaScreens = const [
-    TransfersScreen(isEmbedded: true), // 0: Transfers
-    StorageScreen(),                   // 1: Storage
-    DispatchScreen(),                  // 2: Dispatch
+    TransfersScreen(isEmbedded: true, readOnlyActions: true, departmentFilter: 'TEA'),  // 0: Transfer (Tea only)
+    TeaMaterialReceivedScreen(isEmbedded: true),               // 1: Material Received (Live Stock Ledger)
+    TeaConsumeScreen(isEmbedded: true),                         // 2: Consume (Material Usage & Night Balance)
+    StorageScreen(),                                            // 3: Storage
+    DispatchScreen(),                                           // 4: Dispatch
+  ];
+
+  // Dedicated 3 screens for Chocolate department (OCR, Rack, Consign)
+  late final List<Widget> _chocolateScreens = const [
+    ChocolateOcrScreen(),                                      // 0: Dedicated Chocolate OCR & Ledger
+    StorageScreen(),                                           // 1: Rack
+    DispatchScreen(),                                          // 2: Consign
   ];
 
   // 12 screens in exact order matching screen indices
@@ -268,36 +333,72 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   void _handleNotificationNavigation(String refType, String refId) {
     final isTeaUser = ref.read(isTeaUserProvider);
+    final isChocolateUser = ref.read(isChocolateUserProvider);
     switch (refType.toLowerCase()) {
       case 'material':
-        if (isTeaUser) return;
+        if (isTeaUser || isChocolateUser) return;
         ref.read(materialsFilterProvider.notifier).update(
               (state) => state.copyWith(search: refId),
             );
         setState(() => _currentIndex = 3);
         break;
       case 'invoice':
-        if (isTeaUser) return;
-        setState(() => _currentIndex = 1);
+      case 'ocr':
+        if (isChocolateUser) {
+          setState(() => _chocolateCurrentIndex = 0);
+        } else if (!isTeaUser) {
+          setState(() => _currentIndex = 1);
+        }
+        break;
+      case 'dashboard':
+        if (isTeaUser) {
+          setState(() => _teaCurrentIndex = 0);
+        } else if (!isChocolateUser) {
+          setState(() => _currentIndex = 0);
+        }
         break;
       case 'transfer':
-        if (isTeaUser) {
+        if (isChocolateUser) {
+          return;
+        } else if (isTeaUser) {
           setState(() => _teaCurrentIndex = 0);
         } else {
           setState(() => _currentIndex = 2);
         }
         break;
-      case 'batch':
-      case 'storage':
+      case 'material_received':
         if (isTeaUser) {
           setState(() => _teaCurrentIndex = 1);
+        } else if (!isChocolateUser) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const TeaMaterialReceivedScreen()));
+        }
+        break;
+      case 'consume':
+        if (isChocolateUser) {
+          return;
+        } else if (isTeaUser) {
+          setState(() => _teaCurrentIndex = 2);
+        } else {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const TeaConsumeScreen()));
+        }
+        break;
+      case 'batch':
+      case 'storage':
+      case 'rack':
+        if (isChocolateUser) {
+          setState(() => _chocolateCurrentIndex = 1);
+        } else if (isTeaUser) {
+          setState(() => _teaCurrentIndex = 3);
         } else {
           setState(() => _currentIndex = 5);
         }
         break;
       case 'dispatch':
-        if (isTeaUser) {
-          setState(() => _teaCurrentIndex = 2);
+      case 'consign':
+        if (isChocolateUser) {
+          setState(() => _chocolateCurrentIndex = 2);
+        } else if (isTeaUser) {
+          setState(() => _teaCurrentIndex = 4);
         } else {
           setState(() => _currentIndex = 7);
         }
@@ -361,6 +462,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const MiraPage()));
           } else if (item.label == 'Security Center') {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityCenterScreen()));
+          } else if (item.label == 'Tea Material Received') {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const TeaMaterialReceivedScreen()));
+          } else if (item.label == 'Tea Consumption') {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const TeaConsumeScreen()));
           } else if (item.screenIndex == null) {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
           } else {
@@ -373,21 +478,219 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final isTeaUser = ref.watch(isTeaUserProvider);
+    final role = ref.watch(userRoleProvider);
     final isTablet = ResponsiveBreakpoints.isTabletOrLarger(context);
 
-    // Dedicated 3-module terminal for Tea department (Transfers, Storage, Dispatch)
-    if (isTeaUser) {
+    // Dedicated 3-module terminal for Chocolate department (OCR, Rack, Consign)
+    if (role == 'CHOCOLATE_USER') {
+      if (isTablet) {
+        return _buildChocolateTabletLayout(context);
+      }
+      return _buildChocolateMobileLayout(context);
+    }
+
+    // Dedicated 5-module terminal for Tea department (Transfer, Material Received, Consume, Storage, Dispatch)
+    if (role == 'TEA_USER') {
       if (isTablet) {
         return _buildTeaTabletLayout(context);
       }
       return _buildTeaMobileLayout(context);
     }
 
+    // Standard Full Enterprise MMS layout (Admin, Owner, Staff)
     if (isTablet) {
       return _buildTabletLayout(context);
     }
     return _buildMobileLayout(context);
+  }
+
+  // ─── CHOCOLATE TABLET LAYOUT: 3 Modules in Navigation Rail ───────────────────
+  Widget _buildChocolateTabletLayout(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: _buildAppBar(isTablet: true, isChocolateUser: true),
+      body: AmbientBackground(
+        child: Row(
+          children: [
+            _buildChocolateCompactRail(),
+            const VerticalDivider(width: 1, thickness: 1, color: AppColors.glassBorder),
+            Expanded(
+              child: IndexedStack(
+                index: _chocolateCurrentIndex,
+                children: _chocolateScreens,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChocolateCompactRail() {
+    return Container(
+      width: 78,
+      color: const Color(0xF00A0F1D),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD97706).withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cookie_rounded, size: 12, color: Color(0xFFF59E0B)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'CHOCO',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  for (int i = 0; i < _chocolateNav.length; i++)
+                    _buildChocolateRailItem(_chocolateNav[i], isSelected: _chocolateCurrentIndex == i, index: i),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChocolateRailItem(_PrimaryNavItem item, {required bool isSelected, required int index}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: InkWell(
+        onTap: () => setState(() => _chocolateCurrentIndex = index),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? item.accent.withValues(alpha: 0.18) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: isSelected ? Border.all(color: item.accent.withValues(alpha: 0.4), width: 1) : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(isSelected ? item.selectedIcon : item.icon, size: 22, color: isSelected ? item.accent : AppColors.textMuted),
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? item.accent : AppColors.textMuted,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── CHOCOLATE MOBILE LAYOUT: OCR, Rack, Consign ───────────────────
+  Widget _buildChocolateMobileLayout(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: _buildAppBar(isTablet: false, isChocolateUser: true),
+      body: AmbientBackground(
+        child: IndexedStack(
+          index: _chocolateCurrentIndex,
+          children: _chocolateScreens,
+        ),
+      ),
+      bottomNavigationBar: _buildChocolateBottomNav(),
+    );
+  }
+
+  Widget _buildChocolateBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xF2020617),
+        border: Border(top: BorderSide(color: AppColors.glassBorder)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  for (int i = 0; i < _chocolateNav.length; i++)
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _chocolateCurrentIndex = i),
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: _chocolateCurrentIndex == i ? _chocolateNav[i].accent.withValues(alpha: 0.15) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _chocolateCurrentIndex == i ? _chocolateNav[i].selectedIcon : _chocolateNav[i].icon,
+                                size: 20,
+                                color: _chocolateCurrentIndex == i ? _chocolateNav[i].accent : AppColors.textMuted,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _chocolateNav[i].label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: _chocolateCurrentIndex == i ? FontWeight.w700 : FontWeight.w500,
+                                  color: _chocolateCurrentIndex == i ? _chocolateNav[i].accent : AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              const MapleProFooter(compact: true, padding: EdgeInsets.symmetric(vertical: 2)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ─── TEA TABLET LAYOUT: 3 Modules in Navigation Rail ────────────────────────
@@ -861,7 +1164,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   // ─── APP BAR ─────────────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar({required bool isTablet, bool isTeaUser = false}) {
+  PreferredSizeWidget _buildAppBar({required bool isTablet, bool isTeaUser = false, bool isChocolateUser = false}) {
     return PreferredSize(
       preferredSize: const Size.fromHeight(60),
       child: Container(
@@ -907,7 +1210,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ),
                     SizedBox(width: isNarrow ? 8 : 10),
                     // Title and status
-                    Flexible(
+                    Expanded(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -924,10 +1227,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                               ),
                             ),
                           ),
-                          SizedBox(width: isNarrow ? 6 : 8),
+                          SizedBox(width: isNarrow ? 4 : 8),
                           ConnectionStatusIndicator(compact: isNarrow),
                           if (isTeaUser) ...[
-                            const SizedBox(width: 6),
+                            SizedBox(width: isNarrow ? 4 : 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -947,18 +1250,39 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                 ],
                               ),
                             ),
+                          ] else if (isChocolateUser) ...[
+                            SizedBox(width: isNarrow ? 4 : 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD97706).withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.cookie_rounded, size: 10, color: Color(0xFFF59E0B)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'CHOCOLATE',
+                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ],
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 4),
                     // Current screen badge (tablet/desktop only)
                     if (isTablet && width >= 680) ...[
-                      _buildCurrentScreenBadge(isTeaUser: isTeaUser),
+                      _buildCurrentScreenBadge(isTeaUser: isTeaUser, isChocolateUser: isChocolateUser),
                       const SizedBox(width: 4),
                     ],
-                    // MIRA AI Assistant Quick Launch (Hidden for Tea user)
-                    if (!isTeaUser)
+                    // MIRA AI Assistant Quick Launch (Hidden for Tea and Chocolate users)
+                    if (!isTeaUser && !isChocolateUser)
                       IconButton(
                         icon: Container(
                           width: 28,
@@ -988,14 +1312,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                         ),
                       ),
                     NotificationBellIcon(onNavigateToReference: _handleNotificationNavigation),
-                    if (!isNarrow && !isTeaUser)
+                    if (!isNarrow && !isTeaUser && !isChocolateUser)
                       IconButton(
                         icon: const Icon(Icons.shield_outlined, size: 20, color: Color(0xFF10B981)),
                         tooltip: 'Security Center',
                         splashRadius: 20,
                         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityCenterScreen())),
                       ),
-                    if (!isNarrow && !isTeaUser)
+                    if (!isNarrow && !isTeaUser && !isChocolateUser)
                       IconButton(
                         icon: const Icon(Icons.settings_outlined, size: 20, color: AppColors.textSecondary),
                         tooltip: 'Settings',
@@ -1024,7 +1348,34 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  Widget _buildCurrentScreenBadge({bool isTeaUser = false}) {
+  Widget _buildCurrentScreenBadge({bool isTeaUser = false, bool isChocolateUser = false}) {
+    if (isChocolateUser) {
+      final safeIdx = _chocolateCurrentIndex.clamp(0, _chocolateNav.length - 1);
+      final item = _chocolateNav[safeIdx];
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: item.accent.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: item.accent.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(item.selectedIcon, size: 12, color: item.accent),
+            const SizedBox(width: 4),
+            Text(
+              item.label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: item.accent,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     if (isTeaUser) {
       final safeIdx = _teaCurrentIndex.clamp(0, _teaNav.length - 1);
       final item = _teaNav[safeIdx];

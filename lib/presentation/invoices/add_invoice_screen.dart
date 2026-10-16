@@ -47,6 +47,7 @@ class _FormItem {
 
   String unit;
   String grade;
+  bool gradeInputMode;
   DateTime? purchaseDate;
   DateTime? expiryDate;
 
@@ -70,9 +71,11 @@ class _FormItem {
     String category = 'General',
     String hsnSac = '',
     this.grade = '',
+    bool? gradeInputMode,
     double reorderLevel = 0.0,
     this.purchaseDate,
-  })  : codeController = TextEditingController(text: materialCode),
+  })  : gradeInputMode = gradeInputMode ?? (grade.isNotEmpty && description.isEmpty),
+        codeController = TextEditingController(text: materialCode),
         descController = TextEditingController(text: description),
         qtyController = TextEditingController(
             text: quantity > 0
@@ -187,12 +190,14 @@ class AddInvoiceScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? initialOcrData;
   final InvoiceModel? existingInvoice;
   final bool isOcrScanMode;
+  final bool isEmbedded;
 
   const AddInvoiceScreen({
     super.key,
     this.initialOcrData,
     this.existingInvoice,
     this.isOcrScanMode = false,
+    this.isEmbedded = false,
   });
 
   @override
@@ -205,6 +210,7 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
   final _invoiceNoController = TextEditingController();
   final _purchaseIdController = TextEditingController(text: 'PUR-01');
   final _vendorController = TextEditingController();
+  final _brandController = TextEditingController();
   final _roundOffController = TextEditingController(text: '0.00');
   final _remarksController = TextEditingController();
   final _itemCountController = TextEditingController(text: '1');
@@ -245,6 +251,7 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
       _invoiceNoController.text = inv.invoiceNo;
       _purchaseIdController.text = inv.purchaseId;
       _vendorController.text = inv.vendor;
+      _brandController.text = inv.brand;
       _invoiceDate = inv.date;
       _paymentStatus = inv.paymentStatus;
       _roundOffController.text = inv.roundOffValue.toStringAsFixed(2);
@@ -266,6 +273,7 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
           category: 'General',
           hsnSac: item.hsnSac,
           grade: item.grade,
+          gradeInputMode: item.grade.isNotEmpty,
           purchaseDate: inv.date,
         );
         _items.add(formItem);
@@ -304,7 +312,7 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
                 ? itemLot
                 : calculateDayOfYearLot(_invoiceDate),
             purchaseDate: _invoiceDate,
-            category: m['category']?.toString() ?? 'General',
+            category: m['category']?.toString() ?? (ref.read(isChocolateUserProvider) ? 'CHOCOLATE' : 'General'),
             hsnSac: m['hsn_sac']?.toString() ?? '',
             grade: m['grade']?.toString() ?? '',
           ));
@@ -315,7 +323,12 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
     }
 
     if (_items.isEmpty) {
-      _items.add(_FormItem(lotNo: generatedLot, purchaseDate: _invoiceDate));
+      final isChoc = ref.read(isChocolateUserProvider);
+      _items.add(_FormItem(
+        lotNo: generatedLot,
+        purchaseDate: _invoiceDate,
+        category: isChoc ? 'CHOCOLATE' : 'General',
+      ));
     }
     _itemCountController.text = _items.length.toString();
 
@@ -633,6 +646,7 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
     _invoiceNoController.dispose();
     _purchaseIdController.dispose();
     _vendorController.dispose();
+    _brandController.dispose();
     _roundOffController.dispose();
     _remarksController.dispose();
     _itemCountController.dispose();
@@ -676,9 +690,11 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
       return;
     }
     setState(() {
+      final isChoc = ref.read(isChocolateUserProvider);
       _items.add(_FormItem(
         lotNo: calculateDayOfYearLot(_invoiceDate),
         purchaseDate: _invoiceDate,
+        category: isChoc ? 'CHOCOLATE' : 'General',
       ));
       _itemCountController.text = _items.length.toString();
     });
@@ -727,11 +743,13 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
     } else {
       final diff = targetCount - _items.length;
       final currentLot = calculateDayOfYearLot(_invoiceDate);
+      final isChoc = ref.read(isChocolateUserProvider);
       setState(() {
         for (int i = 0; i < diff; i++) {
           _items.add(_FormItem(
             lotNo: currentLot,
             purchaseDate: _invoiceDate,
+            category: isChoc ? 'CHOCOLATE' : 'General',
           ));
         }
         _itemCountController.text = targetCount.toString();
@@ -1148,6 +1166,9 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
       final rawVendor = _vendorController.text.trim();
       final finalVendor = rawVendor.isNotEmpty ? TextStandardizer.normalizeBusinessText(rawVendor) : null;
 
+      final rawBrand = _brandController.text.trim();
+      final finalBrand = rawBrand.isNotEmpty ? TextStandardizer.normalizeBusinessText(rawBrand) : null;
+
       final rawPurchaseId = _purchaseIdController.text.trim();
       final finalPurchaseId = rawPurchaseId.isNotEmpty ? TextStandardizer.normalizeBusinessText(rawPurchaseId) : null;
 
@@ -1159,6 +1180,7 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
         'date': _invoiceDate.toIso8601String().split('T')[0],
         'invoice_no': finalInvoiceNo,
         'vendor': finalVendor,
+        'brand': finalBrand,
         'no_of_items': _items.length,
         'round_off_value': _roundOff,
         'payment_status': _paymentStatus,
@@ -1197,7 +1219,24 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pop(context);
+        if (widget.isEmbedded) {
+          _formKey.currentState?.reset();
+          setState(() {
+            _items.clear();
+            _scannedFile = null;
+            _scannedFileName = null;
+            _ocrErrorMessage = null;
+            _ocrSuccessMessage = null;
+            _invoiceNoController.clear();
+            _vendorController.clear();
+            _brandController.clear();
+            _roundOffController.text = '0.00';
+            _remarksController.clear();
+            _applyInitialData();
+          });
+        } else {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       setState(() => _isSaving = false);
@@ -1426,26 +1465,29 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
   Widget build(BuildContext context) {
     final vendorsAsync = ref.watch(dynamicVendorsProvider);
     final existingVendors = vendorsAsync.asData?.value ?? const [];
+    final isChoc = ref.watch(isChocolateUserProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isOcrScanMode
-            ? 'RapidOCR Invoice Scanner'
-            : (_isEditMode ? 'Edit Inward Purchase Invoice' : 'New Inward Purchase Invoice')),
-        actions: [
-          if (!widget.isOcrScanMode && !_isEditMode)
-            IconButton(
-              icon: const Icon(Icons.document_scanner_rounded, color: AppColors.primaryLight),
-              tooltip: 'Scan Bill via RapidOCR',
-              onPressed: () {
-                setState(() {
-                  _isOcrSectionExpanded = true;
-                });
-                _pickImageAndScan(ImageSource.camera);
-              },
+      appBar: widget.isEmbedded
+          ? null
+          : AppBar(
+              title: Text(widget.isOcrScanMode
+                  ? (isChoc ? 'RapidOCR Chocolate Invoice Scanner' : 'RapidOCR Invoice Scanner')
+                  : (_isEditMode ? 'Edit Inward Purchase Invoice' : 'New Inward Purchase Invoice')),
+              actions: [
+                if (!widget.isOcrScanMode && !_isEditMode)
+                  IconButton(
+                    icon: const Icon(Icons.document_scanner_rounded, color: AppColors.primaryLight),
+                    tooltip: 'Scan Bill via RapidOCR',
+                    onPressed: () {
+                      setState(() {
+                        _isOcrSectionExpanded = true;
+                      });
+                      _pickImageAndScan(ImageSource.camera);
+                    },
+                  ),
+              ],
             ),
-        ],
-      ),
       body: AmbientBackground(
         child: Form(
           key: _formKey,
@@ -1472,6 +1514,47 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
   }
 
   Widget _buildActionsSection() {
+    if (widget.isEmbedded) {
+      return Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: GlassButton(
+              text: 'Reset Form',
+              icon: Icons.refresh_rounded,
+              isOutlined: true,
+              onPressed: () {
+                _formKey.currentState?.reset();
+                setState(() {
+                  _items.clear();
+                  _scannedFile = null;
+                  _scannedFileName = null;
+                  _ocrErrorMessage = null;
+                  _ocrSuccessMessage = null;
+                  _invoiceNoController.clear();
+                  _vendorController.clear();
+                  _brandController.clear();
+                  _roundOffController.text = '0.00';
+                  _remarksController.clear();
+                  _applyInitialData();
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 7,
+            child: GlassButton(
+              text: 'Save Inward Purchase',
+              isLoading: _isSaving,
+              icon: Icons.check_circle_rounded,
+              color: AppColors.success,
+              onPressed: _submitInvoice,
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
         Expanded(
@@ -1580,12 +1663,27 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          StandardizedTextField(
-            controller: _vendorController,
-            labelText: 'Vendor / Supplier Name (Optional)',
-            hintText: 'e.g. JAI AGENCIES',
-            prefixIcon: const Icon(Icons.storefront_outlined, size: 18),
-            referenceCandidates: existingVendors,
+          Row(
+            children: [
+              Expanded(
+                child: StandardizedTextField(
+                  controller: _vendorController,
+                  labelText: 'Vendor / Supplier Name (Optional)',
+                  hintText: 'e.g. JAI AGENCIES',
+                  prefixIcon: const Icon(Icons.storefront_outlined, size: 18),
+                  referenceCandidates: existingVendors,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StandardizedTextField(
+                  controller: _brandController,
+                  labelText: 'Brand (Optional)',
+                  hintText: 'e.g. TATA, MDH',
+                  prefixIcon: const Icon(Icons.branding_watermark_outlined, size: 18),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
@@ -1964,7 +2062,7 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
               ],
               const SizedBox(height: 14),
 
-              // ── PROMINENT MATERIAL IDENTIFICATION FIELDS (Code + Description) ──
+              // ── PROMINENT MATERIAL IDENTIFICATION FIELDS (Code + Description/Grade Toggle) ──
               if (isWide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1986,28 +2084,90 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
                             onPressed: () => _openMaterialSearchPicker(item),
                           ),
                         ),
-                        validator: (val) => (item.codeController.text.trim().isEmpty && item.descController.text.trim().isEmpty) ? 'Enter Code or Name' : null,
+                        validator: (val) => (item.codeController.text.trim().isEmpty &&
+                                item.descController.text.trim().isEmpty &&
+                                item.grade.trim().isEmpty)
+                            ? 'Enter Code, Name or Grade'
+                            : null,
                         onChanged: (val) => _onCodeChanged(item, val),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 6,
-                      child: TextFormField(
-                        controller: item.descController,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                        decoration: InputDecoration(
-                          labelText: 'Description / Name (Search / Enter)',
-                          hintText: 'e.g. MINT or GREEN TEA',
-                          prefixIcon: const Icon(Icons.description_outlined, size: 18),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.add_box_outlined, size: 18),
-                            tooltip: 'Register New Material',
-                            onPressed: () => _openRegisterNewMaterial(item),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                item.gradeInputMode ? 'Input: Grade' : 'Input: Description',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                              ),
+                              const Spacer(),
+                              Container(
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: const Color(0x3B020617),
+                                  borderRadius: BorderRadius.circular(7),
+                                  border: Border.all(color: AppColors.glassBorder),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildToggleTab(
+                                      label: 'Description',
+                                      isActive: !item.gradeInputMode,
+                                      color: AppColors.primary,
+                                      onTap: () => setState(() => item.gradeInputMode = false),
+                                    ),
+                                    _buildToggleTab(
+                                      label: 'Grade',
+                                      isActive: item.gradeInputMode,
+                                      color: AppColors.secondary,
+                                      onTap: () => setState(() => item.gradeInputMode = true),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        validator: (val) => (item.codeController.text.trim().isEmpty && item.descController.text.trim().isEmpty) ? 'Enter Code or Name' : null,
-                        onChanged: (val) => _onDescChanged(item, val),
+                          const SizedBox(height: 6),
+                          if (!item.gradeInputMode)
+                            TextFormField(
+                              controller: item.descController,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              decoration: InputDecoration(
+                                labelText: 'Description / Name (Search / Enter)',
+                                hintText: 'e.g. MINT or GREEN TEA',
+                                prefixIcon: const Icon(Icons.description_outlined, size: 18),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.add_box_outlined, size: 18),
+                                  tooltip: 'Register New Material',
+                                  onPressed: () => _openRegisterNewMaterial(item),
+                                ),
+                              ),
+                              validator: (val) => (item.codeController.text.trim().isEmpty &&
+                                      item.descController.text.trim().isEmpty &&
+                                      item.grade.trim().isEmpty)
+                                  ? 'Enter Code, Name or Grade'
+                                  : null,
+                              onChanged: (val) => _onDescChanged(item, val),
+                            )
+                          else
+                            GradeDropdown(
+                              value: item.grade,
+                              labelText: 'Select Grade (e.g. BOP, BP, Dust)',
+                              onChanged: (val) {
+                                setState(() {
+                                  item.grade = val ?? '';
+                                  if (item.descController.text.isEmpty && item.grade.isNotEmpty) {
+                                    item.descController.text = item.grade;
+                                  }
+                                });
+                              },
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -2028,26 +2188,83 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
                       onPressed: () => _openMaterialSearchPicker(item),
                     ),
                   ),
-                  validator: (val) => (item.codeController.text.trim().isEmpty && item.descController.text.trim().isEmpty) ? 'Enter Code or Name' : null,
+                  validator: (val) => (item.codeController.text.trim().isEmpty &&
+                          item.descController.text.trim().isEmpty &&
+                          item.grade.trim().isEmpty)
+                      ? 'Enter Code, Name or Grade'
+                      : null,
                   onChanged: (val) => _onCodeChanged(item, val),
                 ),
                 const SizedBox(height: 10),
-                TextFormField(
-                  controller: item.descController,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  decoration: InputDecoration(
-                    labelText: 'Description / Name (Search / Enter)',
-                    hintText: 'e.g. MINT or GREEN TEA',
-                    prefixIcon: const Icon(Icons.description_outlined, size: 18),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.add_box_outlined, size: 18),
-                      tooltip: 'Register New Material',
-                      onPressed: () => _openRegisterNewMaterial(item),
+                Row(
+                  children: [
+                    Text(
+                      item.gradeInputMode ? 'Input: Grade' : 'Input: Description',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  validator: (val) => (item.codeController.text.trim().isEmpty && item.descController.text.trim().isEmpty) ? 'Enter Code or Name' : null,
-                  onChanged: (val) => _onDescChanged(item, val),
+                    const Spacer(),
+                    Container(
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: const Color(0x3B020617),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: AppColors.glassBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildToggleTab(
+                            label: 'Description',
+                            isActive: !item.gradeInputMode,
+                            color: AppColors.primary,
+                            onTap: () => setState(() => item.gradeInputMode = false),
+                          ),
+                          _buildToggleTab(
+                            label: 'Grade',
+                            isActive: item.gradeInputMode,
+                            color: AppColors.secondary,
+                            onTap: () => setState(() => item.gradeInputMode = true),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 6),
+                if (!item.gradeInputMode)
+                  TextFormField(
+                    controller: item.descController,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Description / Name (Search / Enter)',
+                      hintText: 'e.g. MINT or GREEN TEA',
+                      prefixIcon: const Icon(Icons.description_outlined, size: 18),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.add_box_outlined, size: 18),
+                        tooltip: 'Register New Material',
+                        onPressed: () => _openRegisterNewMaterial(item),
+                      ),
+                    ),
+                    validator: (val) => (item.codeController.text.trim().isEmpty &&
+                            item.descController.text.trim().isEmpty &&
+                            item.grade.trim().isEmpty)
+                        ? 'Enter Code, Name or Grade'
+                        : null,
+                    onChanged: (val) => _onDescChanged(item, val),
+                  )
+                else
+                  GradeDropdown(
+                    value: item.grade,
+                    labelText: 'Select Grade (e.g. BOP, BP, Dust)',
+                    onChanged: (val) {
+                      setState(() {
+                        item.grade = val ?? '';
+                        if (item.descController.text.isEmpty && item.grade.isNotEmpty) {
+                          item.descController.text = item.grade;
+                        }
+                      });
+                    },
+                  ),
               ],
               const SizedBox(height: 12),
 
@@ -2300,11 +2517,11 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
               ],
               const SizedBox(height: 12),
 
-              // Reorder Level and Centralized Grade Dropdown
+              // Reorder Level and HSN / SAC
               Row(
                 children: [
                   Expanded(
-                    flex: 4,
+                    flex: 5,
                     child: TextFormField(
                       controller: item.reorderController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -2318,13 +2535,16 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    flex: 6,
-                    child: GradeDropdown(
-                      value: item.grade,
-                      labelText: 'Grade (Optional)',
-                      onChanged: (val) {
-                        setState(() => item.grade = val ?? '');
-                      },
+                    flex: 5,
+                    child: TextFormField(
+                      controller: item.hsnController,
+                      style: GoogleFonts.jetBrainsMono(fontSize: 13),
+                      decoration: const InputDecoration(
+                        labelText: 'HSN / SAC (Optional)',
+                        hintText: 'e.g. 0902',
+                        prefixIcon: Icon(Icons.numbers_outlined, size: 16),
+                      ),
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ],
@@ -2494,6 +2714,34 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
           style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
         ),
       ],
+    );
+  }
+
+  Widget _buildToggleTab({
+    required String label,
+    required bool isActive,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: isActive ? color.withValues(alpha: 0.25) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: isActive ? Border.all(color: color.withValues(alpha: 0.6)) : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isActive ? color : AppColors.textMuted,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -37,7 +37,7 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
   MaterialLotModel? _selectedLot;
   bool _isLoadingLots = false;
 
-  String _selectedDepartment = 'Tea';
+  String _selectedDepartment = 'General';
   bool _isSaving = false;
 
   bool get _isEditMode => widget.existingTransfer != null;
@@ -45,12 +45,32 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
   @override
   void initState() {
     super.initState();
+    final isTea = ref.read(isTeaUserProvider);
+    final isChoc = ref.read(isChocolateUserProvider);
+    _selectedDepartment = isChoc ? 'Chocolate' : (isTea ? 'Tea' : 'General');
+
+    if (isTea || isChoc) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Access Denied: ${isChoc ? 'Chocolate' : 'Tea'} users cannot create or edit transfers. Only Admin can initiate department transfers.'),
+              backgroundColor: AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      });
+      return;
+    }
+
     if (widget.existingTransfer != null) {
       final t = widget.existingTransfer!;
       _selectedCode = t.code;
       _selectedDescription = t.description;
       _selectedUnit = t.units;
-      _selectedDepartment = t.department.isNotEmpty ? t.department : 'Tea';
+      _selectedDepartment = t.department.isNotEmpty ? t.department : (isChoc ? 'Chocolate' : 'Tea');
       _personController.text = t.person;
       _outwardController.text = t.outward.toStringAsFixed(3);
       _returnController.text = t.returnUnits.toStringAsFixed(3);
@@ -148,6 +168,17 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
   }
 
   Future<void> _submitTransfer() async {
+    final isChocolateUser = ref.read(isChocolateUserProvider);
+    if (isChocolateUser) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Access Denied: Chocolate department users cannot initiate or edit transfers.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedCode.isEmpty) {
@@ -171,17 +202,18 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
       return;
     }
 
-    // Tea account category validation (Requirement 5)
+    // Department account category validation (Tea)
     final isTeaUser = ref.read(isTeaUserProvider);
     if (isTeaUser) {
-      final availableTeaMaterials = ref.read(transferMaterialsProvider).valueOrNull ?? [];
-      final isAllowedTea = availableTeaMaterials.any(
-        (m) => m.materialCode.toUpperCase() == _selectedCode.toUpperCase() && m.category.toUpperCase() == 'TEA',
+      final expectedCat = 'TEA';
+      final availableMaterials = ref.read(transferMaterialsProvider).valueOrNull ?? [];
+      final isAllowed = availableMaterials.any(
+        (m) => m.materialCode.toUpperCase() == _selectedCode.toUpperCase() && m.category.toUpperCase() == expectedCat,
       );
-      if (!isAllowedTea && availableTeaMaterials.isNotEmpty) {
+      if (!isAllowed && availableMaterials.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Access Denied: Material "$_selectedCode" does not belong to the authorized TEA category.'),
+            content: Text('Access Denied: Material "$_selectedCode" does not belong to the authorized $expectedCat category.'),
             backgroundColor: AppColors.danger,
             behavior: SnackBarBehavior.floating,
           ),
@@ -364,6 +396,35 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isChocolate = ref.watch(isChocolateUserProvider);
+    if (isChocolate) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Access Denied')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.block_rounded, size: 48, color: AppColors.danger),
+                SizedBox(height: 16),
+                Text(
+                  'Access Denied',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Transfer operations are not accessible for Chocolate department users.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final transferMaterialsAsync = ref.watch(transferMaterialsProvider);
 
     return Scaffold(

@@ -22,13 +22,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isTeaLogin = false;
   Timer? _updateTimer;
+  int _loginMode = 0; // 0 = Admin, 1 = Tea, 2 = Chocolate
 
   @override
   void initState() {
     super.initState();
-    _updateTimer = Timer(const Duration(milliseconds: 800), () {
+    AppUpdateService.instance.resetSessionCheck();
+    _updateTimer = Timer(const Duration(milliseconds: 600), () {
       if (mounted) {
         AppUpdateService.instance.checkAndPromptUpdate(context: context);
       }
@@ -128,7 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Material Management & Inward System',
+                        'Material Management System',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 13,
@@ -137,96 +138,158 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 28),
 
-                      // Glass Login Card
+                      // Glass Login Card - Single Unified Login
                       GlassCard(
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Dedicated Login Mode Switcher
+                            // Quick Access Department Switcher
                             Container(
                               margin: const EdgeInsets.only(bottom: 20),
-                              padding: const EdgeInsets.all(3),
+                              padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: const Color(0x330F172A),
+                                color: const Color(0x3B020617),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: AppColors.glassBorder),
                               ),
                               child: Row(
                                 children: [
+                                  // Admin Mode (0)
                                   Expanded(
                                     child: InkWell(
                                       onTap: () {
                                         setState(() {
-                                          _isTeaLogin = false;
-                                          if (_usernameController.text == 'bm' ||
-                                              _usernameController.text == 'tea' ||
-                                              _usernameController.text == 'tea123') {
-                                            _usernameController.clear();
-                                            _passwordController.clear();
-                                          }
+                                          _loginMode = 0;
+                                          _usernameController.clear();
+                                          _passwordController.clear();
                                         });
                                       },
                                       borderRadius: BorderRadius.circular(8),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
                                         decoration: BoxDecoration(
-                                          color: !_isTeaLogin
-                                              ? AppColors.primary.withValues(alpha: 0.22)
+                                          color: _loginMode == 0
+                                              ? AppColors.primary.withValues(alpha: 0.25)
                                               : Colors.transparent,
                                           borderRadius: BorderRadius.circular(8),
-                                          border: !_isTeaLogin
-                                              ? Border.all(color: AppColors.primaryLight.withValues(alpha: 0.4))
+                                          border: _loginMode == 0
+                                              ? Border.all(color: AppColors.primary.withValues(alpha: 0.5))
                                               : null,
                                         ),
-                                        child: Text(
-                                          'Standard Login',
-                                          textAlign: TextAlign.center,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            fontWeight: !_isTeaLogin ? FontWeight.bold : FontWeight.w500,
-                                            color: !_isTeaLogin ? AppColors.textPrimary : AppColors.textMuted,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.shield_outlined, size: 14, color: AppColors.primary),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Admin',
+                                                textAlign: TextAlign.center,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 12,
+                                                  fontWeight: _loginMode == 0 ? FontWeight.bold : FontWeight.w500,
+                                                  color: _loginMode == 0 ? Colors.white : AppColors.textMuted,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(width: 4),
+
+                                  // Tea Mode (1)
                                   Expanded(
                                     child: InkWell(
                                       onTap: () {
                                         setState(() {
-                                          _isTeaLogin = true;
+                                          _loginMode = 1;
                                           _usernameController.text = 'bm';
                                           _passwordController.text = 'tea123';
                                         });
                                       },
                                       borderRadius: BorderRadius.circular(8),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
                                         decoration: BoxDecoration(
-                                          color: _isTeaLogin
+                                          color: _loginMode == 1
                                               ? const Color(0xFF10B981).withValues(alpha: 0.22)
                                               : Colors.transparent,
                                           borderRadius: BorderRadius.circular(8),
-                                          border: _isTeaLogin
+                                          border: _loginMode == 1
                                               ? Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.45))
                                               : null,
                                         ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            const Icon(Icons.eco_rounded, size: 14, color: Color(0xFF10B981)),
-                                            const SizedBox(width: 5),
-                                            Text(
-                                              'Tea Login',
-                                              textAlign: TextAlign.center,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 12,
-                                                fontWeight: _isTeaLogin ? FontWeight.bold : FontWeight.w500,
-                                                color: _isTeaLogin ? Colors.white : AppColors.textMuted,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.eco_rounded, size: 14, color: Color(0xFF10B981)),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Tea',
+                                                textAlign: TextAlign.center,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 12,
+                                                  fontWeight: _loginMode == 1 ? FontWeight.bold : FontWeight.w500,
+                                                  color: _loginMode == 1 ? Colors.white : AppColors.textMuted,
+                                                ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+
+                                  // Chocolate Mode (2)
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _loginMode = 2;
+                                          _usernameController.text = 'chocolate';
+                                          _passwordController.text = 'cho123';
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                                        decoration: BoxDecoration(
+                                          color: _loginMode == 2
+                                              ? const Color(0xFFD97706).withValues(alpha: 0.22)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: _loginMode == 2
+                                              ? Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.45))
+                                              : null,
+                                        ),
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.speed_rounded, size: 14, color: Color(0xFFF59E0B)),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Chocolate',
+                                                textAlign: TextAlign.center,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 12,
+                                                  fontWeight: _loginMode == 2 ? FontWeight.bold : FontWeight.w500,
+                                                  color: _loginMode == 2 ? Colors.white : AppColors.textMuted,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -236,7 +299,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
 
                             Text(
-                              _isTeaLogin ? 'Tea Department Sign In' : 'Sign In',
+                              _loginMode == 1
+                                  ? 'Tea Department Sign In'
+                                  : (_loginMode == 2 ? 'Chocolate Department Sign In' : 'Sign In'),
                               style: GoogleFonts.inter(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -245,38 +310,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _isTeaLogin
-                                  ? 'Restricted phone terminal (Transfers, Storage, Dispatch)'
-                                  : 'Enter your authorized credentials',
+                              _loginMode == 1
+                                  ? 'Restricted department terminal (Transfers, Storage, Dispatch)'
+                                  : (_loginMode == 2
+                                      ? 'Restricted department terminal (OCR, Rack, Consign)'
+                                      : 'Enter your authorized credentials'),
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                color: _isTeaLogin ? const Color(0xFF10B981) : AppColors.textMuted,
+                                color: _loginMode == 1
+                                    ? const Color(0xFF10B981)
+                                    : (_loginMode == 2 ? const Color(0xFFF59E0B) : AppColors.textMuted),
                               ),
                             ),
                             const SizedBox(height: 20),
 
-                            // Username / Email input
+                            // Username input
                             TextFormField(
                               controller: _usernameController,
                               keyboardType: TextInputType.text,
+                              textInputAction: TextInputAction.next,
                               style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                               decoration: InputDecoration(
                                 labelText: 'Username or Email',
-                                hintText: _isTeaLogin ? 'bm' : 'Enter username or email',
+                                hintText: _loginMode == 1
+                                    ? 'bm'
+                                    : (_loginMode == 2 ? 'chocolate' : 'Enter username or email'),
                                 prefixIcon: Icon(
-                                  _isTeaLogin ? Icons.badge_outlined : Icons.person_outline,
+                                  _loginMode == 1
+                                      ? Icons.badge_outlined
+                                      : (_loginMode == 2 ? Icons.speed_rounded : Icons.person_outline),
                                   size: 20,
-                                  color: _isTeaLogin ? const Color(0xFF10B981) : null,
+                                  color: _loginMode == 1
+                                      ? const Color(0xFF10B981)
+                                      : (_loginMode == 2 ? const Color(0xFFF59E0B) : null),
                                 ),
                               ),
                               onChanged: (val) {
                                 final clean = val.trim().toLowerCase();
                                 if (clean == 'tea' || clean == 'bm' || clean == 'tea123') {
-                                  if (!_isTeaLogin) {
-                                    setState(() => _isTeaLogin = true);
+                                  if (_loginMode != 1) {
+                                    setState(() => _loginMode = 1);
                                   }
-                                } else if (_isTeaLogin && (clean == 'admin' || clean == 'owner')) {
-                                  setState(() => _isTeaLogin = false);
+                                } else if (clean == 'chocolate' || clean == 'cho' || clean == 'choco') {
+                                  if (_loginMode != 2) {
+                                    setState(() => _loginMode = 2);
+                                  }
+                                } else if (_loginMode != 0 && (clean == 'admin' || clean == 'owner')) {
+                                  setState(() => _loginMode = 0);
                                 }
                               },
                               validator: (val) {
@@ -288,14 +368,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Password input (starts blank, no hardcoded passwords)
+                            // Password input
                             TextFormField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.done,
                               style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                               decoration: InputDecoration(
                                 labelText: 'Password',
-                                hintText: _isTeaLogin ? 'Enter Tea password' : 'Enter password',
+                                hintText: _loginMode == 1
+                                    ? 'Enter Tea password'
+                                    : (_loginMode == 2 ? 'Enter Chocolate password' : 'Enter password'),
                                 prefixIcon: const Icon(Icons.lock_outline, size: 20),
                                 suffixIcon: IconButton(
                                   icon: Icon(
@@ -322,7 +405,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                             // Sign In Button
                             GlassButton(
-                              text: _isTeaLogin ? 'Sign In as Tea User' : 'Sign In to MMS',
+                              text: _loginMode == 1
+                                  ? 'Sign In as Tea User'
+                                  : (_loginMode == 2 ? 'Sign In as Chocolate User' : 'Sign In to MMS'),
                               isLoading: isLoading,
                               icon: Icons.login_rounded,
                               onPressed: _handleLogin,

@@ -2,7 +2,7 @@ name: mms_app
 description: "Benchmark Material Management System (Benchmark MMS) - Mobile & Tablet App"
 publish_to: 'none'
 
-version: 1.0.22+25
+version: 1.0.55+58
 
 environment:
   sdk: ^3.8.1
@@ -35,6 +35,7 @@ dependencies:
   # Document Capture & File Picker
   image_picker: ^1.1.2
   file_picker: ^8.1.7
+  image: ^4.5.4
 
   # Reporting, Export, Printing & Share
   pdf: ^3.11.3
@@ -45,6 +46,8 @@ dependencies:
   flutter_local_notifications: ^20.1.0
   package_info_plus: ^9.0.1
   ota_update: ^7.1.0
+  google_mlkit_text_recognition: ^0.16.0
+  speech_to_text: ^7.4.0
 
 dev_dependencies:
   flutter_test:

@@ -14,6 +14,6 @@ void main() {
 
     // Initial state before authentication shows Login Screen with app name and Sign In card
     expect(find.text(FactoryConstants.appName), findsOneWidget);
-    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text('Sign In to MMS'), findsOneWidget);
   });
 }

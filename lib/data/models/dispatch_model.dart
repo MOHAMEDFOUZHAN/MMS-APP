@@ -83,6 +83,7 @@ class DispatchModel {
   final String department;
   final String remarks;
   final String? createdBy;
+  final int? ocrLedgerId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final List<DispatchBatchModel> allocations;
@@ -104,6 +105,7 @@ class DispatchModel {
     this.department = 'Dispatch',
     this.remarks = '',
     this.createdBy,
+    this.ocrLedgerId,
     this.createdAt,
     this.updatedAt,
     this.allocations = const [],
@@ -158,6 +160,7 @@ class DispatchModel {
       department: json['department']?.toString() ?? 'Dispatch',
       remarks: json['remarks']?.toString() ?? '',
       createdBy: json['created_by']?.toString(),
+      ocrLedgerId: (json['ocr_ledger_id'] as num?)?.toInt(),
       createdAt: parseTimestamp(json['created_at']),
       updatedAt: parseTimestamp(json['updated_at']),
       allocations: parsedAllocations,
@@ -180,6 +183,7 @@ class DispatchModel {
       'location': location,
       'department': department,
       'remarks': remarks,
+      if (ocrLedgerId != null) 'ocr_ledger_id': ocrLedgerId,
     };
   }
 
@@ -200,6 +204,7 @@ class DispatchModel {
     String? department,
     String? remarks,
     String? createdBy,
+    int? ocrLedgerId,
     DateTime? createdAt,
     DateTime? updatedAt,
     List<DispatchBatchModel>? allocations,
@@ -221,6 +226,7 @@ class DispatchModel {
       department: department ?? this.department,
       remarks: remarks ?? this.remarks,
       createdBy: createdBy ?? this.createdBy,
+      ocrLedgerId: ocrLedgerId ?? this.ocrLedgerId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       allocations: allocations ?? this.allocations,

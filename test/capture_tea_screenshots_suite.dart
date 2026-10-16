@@ -29,7 +29,6 @@ class MockAuthNotifier extends StateNotifier<AuthState> implements AuthNotifier 
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  GoogleFonts.config.allowRuntimeFetching = false;
 
   const teaProfile = UserProfileModel(
     id: 'tea-user-uuid',
@@ -39,8 +38,8 @@ void main() {
     permissions: ['tea.*', 'transfer.*', 'storage.*', 'dispatch.*', 'notifications.view'],
   );
 
-  testWidgets('Capture Tea Login and App Screen Mockups', (tester) async {
-    // 1. Capture Login Screen in Tea Login Mode
+  testWidgets('Capture Login and App Screen Mockups', (tester) async {
+    // 1. Capture Login Screen
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -67,16 +66,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // Tap Tea Login button to display mode
-    await tester.tap(find.text('Tea Login'));
-    await tester.pump();
+    // Verify Tea Login option is absent
+    expect(find.text('Tea'), findsNothing);
     await tester.pump(const Duration(milliseconds: 200));
 
     RenderRepaintBoundary boundary = loginRepKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
     ui.Image image = await boundary.toImage();
     var byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     File('tea_login_mode.png').writeAsBytesSync(byteData!.buffer.asUint8List());
-    print('Saved tea_login_mode.png');
+    print('Saved login_screen.png');
 
     // 2. Capture Tea Phone Layout (390 x 844)
     final phoneRepKey = GlobalKey();

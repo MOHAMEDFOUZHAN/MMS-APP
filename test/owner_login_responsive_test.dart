@@ -49,11 +49,11 @@ void main() {
 
         // Verify key widgets are present
         expect(find.text('BENCHMARK MMS'), findsOneWidget);
-        expect(find.text('OWNER ACCESS'), findsOneWidget);
-        expect(find.text('OWNER IDENTIFIER'), findsOneWidget);
+        expect(find.text('MANAGEMENT ACCESS'), findsOneWidget);
+        expect(find.text('MANAGEMENT USERNAME / ID'), findsOneWidget);
         expect(find.text('PASSWORD'), findsOneWidget);
         expect(find.text('SIGN IN'), findsOneWidget);
-        expect(find.text('Authorized owner access only.'), findsOneWidget);
+        expect(find.text('Authorized management access only.'), findsOneWidget);
         expect(find.text('Operator Login'), findsOneWidget);
 
         // Verify no RenderFlex errors occurred
@@ -83,14 +83,14 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('BENCHMARK MMS'), findsOneWidget);
-        expect(find.text('OWNER ACCESS'), findsOneWidget);
+        expect(find.text('MANAGEMENT ACCESS'), findsOneWidget);
 
         // In landscape, verify scrollable to the bottom without overflow
         await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -250));
         await tester.pumpAndSettle();
 
         expect(find.text('SIGN IN'), findsOneWidget);
-        expect(find.text('Authorized owner access only.'), findsOneWidget);
+        expect(find.text('Authorized management access only.'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
@@ -114,7 +114,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('BENCHMARK MMS'), findsOneWidget);
-        expect(find.text('OWNER ACCESS'), findsOneWidget);
+        expect(find.text('MANAGEMENT ACCESS'), findsOneWidget);
         expect(find.text('SIGN IN'), findsOneWidget);
 
         // Check that the form card does not stretch across the entire width
@@ -194,7 +194,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('BENCHMARK MMS'), findsOneWidget);
-      expect(find.text('OWNER ACCESS'), findsOneWidget);
+      expect(find.text('MANAGEMENT ACCESS'), findsOneWidget);
       expect(find.text('SIGN IN'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -219,7 +219,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Expect validation error text
-      expect(find.text('Please enter owner email or ID'), findsOneWidget);
+      expect(find.text('Please enter username or ID'), findsOneWidget);
       expect(find.text('Please enter your password'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

@@ -57,8 +57,8 @@ void main() {
     });
   });
 
-  group('2. Login Screen Tea Toggle & Credentials Flow', () {
-    testWidgets('Login screen provides Tea Login switch without exposing passwords', (tester) async {
+  group('2. Login Screen Department Toggle & Verification', () {
+    testWidgets('Login screen provides Admin, Tea, Chocolate switches and Management Login', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -80,20 +80,31 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      // Look for the Tea Login mode toggle button
-      final teaLoginBtn = find.text('Tea Login');
-      expect(teaLoginBtn, findsOneWidget);
+      // 1. Verify all 4 login options are present
+      expect(find.text('Admin'), findsWidgets);
+      expect(find.text('Tea'), findsOneWidget);
+      expect(find.text('Chocolate'), findsOneWidget);
+      expect(find.text('Management Login'), findsOneWidget);
 
-      // Tap Tea Login mode
-      await tester.tap(teaLoginBtn);
+      // Default Admin state
+      expect(find.text('Sign In to MMS'), findsOneWidget);
+
+      // 2. Tap Tea mode
+      await tester.tap(find.text('Tea'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Sign In as Tea User'), findsOneWidget);
+      expect(find.text('Tea Department Sign In'), findsOneWidget);
 
-      // Username should now be pre-filled with 'bm'
-      expect(find.text('bm'), findsWidgets);
+      // 3. Tap Chocolate mode
+      await tester.tap(find.text('Chocolate'));
+      await tester.pump();
+      expect(find.text('Sign In as Chocolate User'), findsOneWidget);
+      expect(find.text('Chocolate Department Sign In'), findsOneWidget);
 
-      // Password field pre-filled for 1-tap Tea sign-in
-      expect(find.text('tea123'), findsOneWidget);
+      // 4. Tap Admin mode back
+      await tester.tap(find.text('Admin'));
+      await tester.pump();
+      expect(find.text('Sign In to MMS'), findsOneWidget);
     });
   });
 
@@ -125,13 +136,15 @@ void main() {
       // Tea badge must appear in AppBar
       expect(find.text('TEA'), findsOneWidget);
 
-      // Exactly 3 modules in bottom navigation: Transfers, Storage, Dispatch
-      expect(find.text('Transfers'), findsOneWidget);
+      // Exactly 5 modules in navigation order: Transfer, Material Received, Consume, Storage, Dispatch
+      expect(find.text('Dashboard'), findsNothing);
+      expect(find.text('Transfer'), findsOneWidget);
+      expect(find.text('Material Received'), findsOneWidget);
+      expect(find.text('Consume'), findsOneWidget);
       expect(find.text('Storage'), findsOneWidget);
       expect(find.text('Dispatch'), findsOneWidget);
 
       // Unauthorized modules must NOT exist in the Tea navigation
-      expect(find.text('Dashboard'), findsNothing);
       expect(find.text('Invoices'), findsNothing);
       expect(find.text('Materials'), findsNothing);
       expect(find.text('Materials Master'), findsNothing);
@@ -144,7 +157,7 @@ void main() {
       expect(find.byTooltip('Settings'), findsNothing);
     });
 
-    testWidgets('Tea user on tablet layout (800x1280) accesses 3 Tea modules in Navigation Rail', (tester) async {
+    testWidgets('Tea user on tablet layout (800x1280) accesses 6 Tea modules in Navigation Rail', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -171,13 +184,15 @@ void main() {
       // Tea badge must appear in AppBar
       expect(find.text('TEA'), findsWidgets);
 
-      // Permitted 3 modules visible on tablet Navigation Rail & AppBar
-      expect(find.text('Transfers'), findsWidgets);
+      // Permitted 5 modules visible on tablet Navigation Rail & AppBar
+      expect(find.text('Dashboard'), findsNothing);
+      expect(find.text('Transfer'), findsWidgets);
+      expect(find.text('Material Received'), findsOneWidget);
+      expect(find.text('Consume'), findsOneWidget);
       expect(find.text('Storage'), findsOneWidget);
       expect(find.text('Dispatch'), findsOneWidget);
 
       // Unauthorized modules must NOT exist
-      expect(find.text('Dashboard'), findsNothing);
       expect(find.text('Invoices'), findsNothing);
       expect(find.text('Materials'), findsNothing);
       expect(find.text('Reports Hub'), findsNothing);
@@ -303,13 +318,14 @@ void main() {
 
       await tester.pump();
 
-      // Must immediately show Transfers, Storage, Dispatch
-      expect(find.text('Transfers'), findsOneWidget);
+      // Must immediately show Transfer, Material Received, Consume, Storage, Dispatch
+      expect(find.text('Transfer'), findsOneWidget);
+      expect(find.text('Material Received'), findsOneWidget);
+      expect(find.text('Consume'), findsOneWidget);
       expect(find.text('Storage'), findsOneWidget);
       expect(find.text('Dispatch'), findsOneWidget);
 
-      // Must NEVER display Dashboard or standard navigation
-      expect(find.text('Dashboard'), findsNothing);
+      // Must NEVER display unauthorized standard navigation
       expect(find.text('Invoices'), findsNothing);
       expect(find.text('Materials'), findsNothing);
     });

@@ -16,7 +16,7 @@ class MaterialsRepository {
     String? status, // 'all', 'reorder', 'expiring', 'out_of_stock'
     DateTime? fromDate,
     DateTime? toDate,
-    int limit = 100,
+    int limit = 1000,
     int offset = 0,
     int? expiryDays,
   }) async {
@@ -47,7 +47,7 @@ class MaterialsRepository {
     String? search,
     String? category,
     String? status, // 'all', 'reorder', 'expiring', 'out_of_stock'
-    int limit = 100,
+    int limit = 1000,
     int offset = 0,
     int invoiceMaterialExpiryAlertDays = 30,
   }) async {
@@ -311,14 +311,24 @@ class MaterialsRepository {
   }
 
   Future<bool> updateMaterialUnit(String materialCode, String newUnit) async {
+    final cleanCode = TextStandardizer.normalizeCode(materialCode);
+    final cleanUnit = TextStandardizer.normalizeBusinessText(newUnit);
     try {
       final response = await _client.rpc('update_material_unit', params: {
-        'p_code': TextStandardizer.normalizeCode(materialCode),
-        'p_new_unit': TextStandardizer.normalizeBusinessText(newUnit),
+        'p_code': cleanCode,
+        'p_new_unit': cleanUnit,
       });
       return response == true;
-    } catch (e) {
-      throw AppException.from(e);
+    } catch (_) {
+      try {
+        await _client.from('materials').update({
+          'unit': cleanUnit,
+          'last_updated': DateTime.now().toIso8601String(),
+        }).eq('material_code', cleanCode);
+        return true;
+      } catch (e) {
+        throw AppException.from(e);
+      }
     }
   }
 
@@ -330,6 +340,28 @@ class MaterialsRepository {
       }).eq('material_code', materialCode);
     } catch (e) {
       throw AppException.from(e);
+    }
+  }
+
+  Future<bool> updateMaterialCategory(String materialCode, String newCategory) async {
+    final cleanCode = TextStandardizer.normalizeCode(materialCode);
+    final cleanCat = TextStandardizer.normalizeBusinessText(newCategory);
+    try {
+      final response = await _client.rpc('update_material_category', params: {
+        'p_code': cleanCode,
+        'p_new_cat': cleanCat,
+      });
+      return response == true;
+    } catch (_) {
+      try {
+        await _client.from('materials').update({
+          'category': cleanCat,
+          'last_updated': DateTime.now().toIso8601String(),
+        }).eq('material_code', cleanCode);
+        return true;
+      } catch (e) {
+        throw AppException.from(e);
+      }
     }
   }
 }

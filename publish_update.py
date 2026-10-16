@@ -56,7 +56,16 @@ def get_pubspec_version():
     return version_name, version_code
 
 
-def build_flutter_apk():
+def build_flutter_apk(clean=False, universal=False):
+    flutter_bin = r"D:\flutter\bin\flutter.bat"
+    if not os.path.exists(flutter_bin):
+        flutter_bin = "flutter"
+
+    if clean:
+        print("\n[BUILD] Running fresh flutter clean and flutter pub get...", flush=True)
+        subprocess.run([flutter_bin, "clean"], cwd=os.path.dirname(__file__))
+        subprocess.run([flutter_bin, "pub", "get"], cwd=os.path.dirname(__file__))
+
     print("\n[BUILD] Cleaning old APK outputs to prevent stale releases...", flush=True)
     out_dir = os.path.join(os.path.dirname(__file__), "build", "app", "outputs", "flutter-apk")
     if os.path.exists(out_dir):
@@ -81,17 +90,65 @@ def build_flutter_apk():
         except Exception:
             pass
 
-    print("[BUILD] Compiling fresh release APK with Flutter (--split-per-abi)...", flush=True)
-    flutter_bin = r"D:\flutter\bin\flutter.bat"
-    if not os.path.exists(flutter_bin):
-        flutter_bin = "flutter"
+    if universal:
+        print("[BUILD] Compiling universal release APK with Flutter (supports arm64, armeabi-v7a, and x86)...", flush=True)
+        cmd = [flutter_bin, "build", "apk"]
+    else:
+        print("[BUILD] Compiling fresh release APK with Flutter (--split-per-abi)...", flush=True)
+        cmd = [flutter_bin, "build", "apk", "--split-per-abi"]
 
-    cmd = [flutter_bin, "build", "apk", "--split-per-abi"]
     result = subprocess.run(cmd, cwd=os.path.dirname(__file__))
     if result.returncode != 0:
         print("[ERROR] Flutter build failed.", flush=True)
         sys.exit(1)
     print("[BUILD] Build successful!", flush=True)
+
+
+def clear_old_ota(current_version_code=None):
+    """Deletes old APKs from Supabase Storage and prunes older versions from app_versions."""
+    print("\n[OTA-CLEAN] Checking Supabase Storage bucket for old APKs...", flush=True)
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    try:
+        res = requests.post(
+            f"{SUPABASE_URL}/storage/v1/object/list/{BUCKET_NAME}",
+            headers=headers,
+            json={"prefix": "", "limit": 100},
+            timeout=15
+        )
+        if res.status_code == 200:
+            files = res.json()
+            keep_file = f"mms_app_v{current_version_code}.apk" if current_version_code else None
+            to_delete = [f["name"] for f in files if "name" in f and f["name"] != keep_file]
+            if to_delete:
+                print(f"[OTA-CLEAN] Removing {len(to_delete)} old APK(s) from storage: {to_delete}", flush=True)
+                del_res = requests.delete(
+                    f"{SUPABASE_URL}/storage/v1/object/{BUCKET_NAME}",
+                    headers=headers,
+                    json={"prefixes": to_delete},
+                    timeout=30
+                )
+                print(f"[OTA-CLEAN] Storage delete response: {del_res.status_code} {del_res.text}", flush=True)
+            else:
+                print("[OTA-CLEAN] No old APKs to remove from storage.", flush=True)
+    except Exception as e:
+        print(f"[WARN] Failed to clean old storage objects: {e}", flush=True)
+
+    if current_version_code:
+        try:
+            print(f"[OTA-CLEAN] Pruning older database version records (< {current_version_code})...", flush=True)
+            conn = psycopg2.connect(host=HOST, port=PORT, user=USER, password=PASSWORD, dbname=DBNAME, connect_timeout=15)
+            cur = conn.cursor()
+            cur.execute("DELETE FROM public.app_versions WHERE version_code < %s;", (current_version_code,))
+            conn.commit()
+            print(f"[OTA-CLEAN] Cleaned {cur.rowcount} older version records.", flush=True)
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"[WARN] Failed to prune older app_versions records: {e}", flush=True)
 
 
 def upload_apk(apk_path, version_name, version_code):
@@ -156,9 +213,12 @@ def main():
     parser = argparse.ArgumentParser(description="Publish a new OTA update for Benchmark MMS")
     parser.add_argument("--build", action="store_true", default=True, help="Compile the Flutter APK before uploading (default: True)")
     parser.add_argument("--no-build", action="store_true", help="Skip compilation and upload existing APK")
+    parser.add_argument("--clean", action="store_true", default=False, help="Run flutter clean and pub get before compilation")
+    parser.add_argument("--clear-old-ota", action="store_true", default=True, help="Remove old APKs from Supabase Storage and prune old DB records")
     parser.add_argument("--apk", type=str, default="", help="Path to existing APK file")
     parser.add_argument("--notes", type=str, default="", help="Release notes / changelog")
     parser.add_argument("--mandatory", action="store_true", help="Force mandatory update on clients")
+    parser.add_argument("--split", action="store_true", default=False, help="Build split-per-abi APKs instead of universal APK")
     args = parser.parse_args()
 
     version_name, version_code = get_pubspec_version()
@@ -174,12 +234,14 @@ def main():
         arm64_apk = os.path.join(os.path.dirname(__file__), "build", "app", "outputs", "flutter-apk", "app-arm64-v8a-release.apk")
         universal_apk = os.path.join(os.path.dirname(__file__), "build", "app", "outputs", "flutter-apk", "app-release.apk")
         if should_build or (not os.path.exists(arm64_apk) and not os.path.exists(universal_apk)):
-            build_flutter_apk()
+            build_flutter_apk(clean=args.clean, universal=False)
 
         if os.path.exists(arm64_apk):
             apk_path = arm64_apk
-        else:
+        elif os.path.exists(universal_apk):
             apk_path = universal_apk
+        else:
+            apk_path = arm64_apk
 
     if not os.path.exists(apk_path):
         print(f"[ERROR] APK not found at '{apk_path}'. Run with --build to compile.")
@@ -200,6 +262,9 @@ def main():
 
     public_url = upload_apk(apk_path, version_name, version_code)
     update_database_version(version_code, version_name, public_url, notes, args.mandatory)
+
+    if args.clear_old_ota:
+        clear_old_ota(current_version_code=version_code)
 
     print("\n" + "=" * 60)
     print("[SUCCESS] Update published successfully!")

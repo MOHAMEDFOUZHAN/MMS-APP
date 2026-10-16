@@ -40,7 +40,31 @@ class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
 
-  bool _hasCheckedThisSession = false;
+  bool _isDialogShowing = false;
+  Timer? _pollingTimer;
+
+  void resetSessionCheck() {
+    _isDialogShowing = false;
+  }
+
+  /// Start background periodic polling for OTA updates (runs every 30 seconds while app is open)
+  void startPeriodicChecks() {
+    _pollingTimer?.cancel();
+    // Run initial check after 2 seconds to let navigator context mount
+    Future.delayed(const Duration(seconds: 2), () {
+      checkAndPromptUpdate();
+    });
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      checkAndPromptUpdate();
+    });
+  }
+
+  /// Stop background periodic polling
+  void stopPeriodicChecks() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
   final ValueNotifier<AppVersionInfo?> updateAvailableNotifier = ValueNotifier<AppVersionInfo?>(null);
   final ValueNotifier<AppVersionInfo?> latestCloudVersionNotifier = ValueNotifier<AppVersionInfo?>(null);
   final ValueNotifier<String> statusNotifier = ValueNotifier<String>('Idle');
@@ -139,11 +163,10 @@ class AppUpdateService {
     }
   }
 
-  /// Automatically check and show prompt once per app session
+  /// Automatically check and show prompt
   Future<void> checkAndPromptUpdate({BuildContext? context, bool forceManual = false}) async {
-    debugPrint('>>> [AppUpdateService] checkAndPromptUpdate: forceManual=$forceManual, _hasCheckedThisSession=$_hasCheckedThisSession');
-    if (!forceManual && _hasCheckedThisSession) {
-      debugPrint('>>> [AppUpdateService] Already checked this session, skipping.');
+    if (_isDialogShowing && !forceManual) {
+      debugPrint('>>> [AppUpdateService] Update dialog already active, skipping duplicate check.');
       return;
     }
 
@@ -151,7 +174,6 @@ class AppUpdateService {
     final effectiveContext = (context != null && context.mounted) ? context : BenchmarkMmsApp.navigatorKey.currentContext;
 
     if (updateInfo != null) {
-      _hasCheckedThisSession = true;
       if (effectiveContext != null && effectiveContext.mounted) {
         debugPrint('>>> [AppUpdateService] Showing update dialog on effectiveContext!');
         showUpdateDialog(effectiveContext, updateInfo);
@@ -173,6 +195,10 @@ class AppUpdateService {
   void showUpdateDialog([BuildContext? context, AppVersionInfo? info]) {
     final updateInfo = info ?? updateAvailableNotifier.value;
     if (updateInfo == null) return;
+    if (_isDialogShowing) {
+      debugPrint('>>> [AppUpdateService] Dialog already showing, avoiding duplicate popup');
+      return;
+    }
 
     final targetContext = (context != null && context.mounted) ? context : BenchmarkMmsApp.navigatorKey.currentContext;
     if (targetContext == null) {
@@ -180,12 +206,15 @@ class AppUpdateService {
       return;
     }
 
+    _isDialogShowing = true;
     showDialog(
       context: targetContext,
       useRootNavigator: true,
       barrierDismissible: !updateInfo.isMandatory,
       builder: (ctx) => _UpdateDialogContent(info: updateInfo),
-    );
+    ).whenComplete(() {
+      _isDialogShowing = false;
+    });
   }
 }
 

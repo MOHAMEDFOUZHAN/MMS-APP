@@ -61,16 +61,37 @@ class UomDropdown extends StatelessWidget {
       ),
       validator: validator,
       onChanged: onChanged,
+      selectedItemBuilder: (context) {
+        return allItems.map((uom) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${uom.label} (${uom.symbol})',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          );
+        }).toList();
+      },
       items: allItems.map((uom) {
         return DropdownMenuItem<String>(
           value: uom.code,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                uom.label,
-                style: const TextStyle(fontWeight: FontWeight.w500),
+              Flexible(
+                child: Text(
+                  uom.label,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(

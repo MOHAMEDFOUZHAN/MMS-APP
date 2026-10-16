@@ -15,7 +15,14 @@ import 'add_transfer_screen.dart';
 
 class TransfersScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
-  const TransfersScreen({super.key, this.isEmbedded = false});
+  final bool readOnlyActions;
+  final String? departmentFilter;
+  const TransfersScreen({
+    super.key,
+    this.isEmbedded = false,
+    this.readOnlyActions = false,
+    this.departmentFilter,
+  });
 
   @override
   ConsumerState<TransfersScreen> createState() => _TransfersScreenState();
@@ -111,14 +118,12 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                   )),
                 ],
                 const Divider(height: 20),
-                _detailRow('Outward Issued', QuantityFormatter.formatDualUnit(t.outward, t.units)),
-                _detailRow('Returned In', QuantityFormatter.formatDualUnit(t.returnUnits, t.units)),
                 _detailRow(
-                  'Net Stock Impact',
-                  '${t.netChange > 0 ? "+" : ""}${QuantityFormatter.format3Decimals(t.netChange)} ${t.units}',
-                  color: t.netChange < 0 ? AppColors.danger : AppColors.success,
+                  (ref.read(isTeaUserProvider) || widget.departmentFilter == 'TEA') ? 'Received from Admin' : 'Outward Issued',
+                  QuantityFormatter.formatDualUnit(t.outward, t.units),
                 ),
-                _detailRow('Available Live Balance', QuantityFormatter.formatDualUnit(t.availability, t.units)),
+                _detailRow('Returned In', QuantityFormatter.formatDualUnit(t.returnUnits, t.units)),
+                _detailRow('Current Stock', QuantityFormatter.formatDualUnit(t.availability, t.units)),
               ],
             ),
           ),
@@ -127,18 +132,19 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Close'),
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.secondary,
-                side: const BorderSide(color: AppColors.secondary),
+            if (!widget.readOnlyActions && !ref.watch(isTeaUserProvider))
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondary,
+                  side: const BorderSide(color: AppColors.secondary),
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 14),
+                label: const Text('Edit'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => AddTransferScreen(existingTransfer: t)));
+                },
               ),
-              icon: const Icon(Icons.edit_outlined, size: 14),
-              label: const Text('Edit'),
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => AddTransferScreen(existingTransfer: t)));
-              },
-            ),
           ],
         );
       },
@@ -167,10 +173,42 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isChocolate = ref.watch(isChocolateUserProvider);
+    if (isChocolate) {
+      return Scaffold(
+        appBar: widget.isEmbedded ? null : AppBar(title: const Text('Access Denied')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.block_rounded, size: 48, color: AppColors.danger),
+                SizedBox(height: 16),
+                Text(
+                  'Access Denied',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Transfer module is not accessible for Chocolate department users.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final isTea = ref.watch(isTeaUserProvider) || widget.departmentFilter == 'TEA';
+    final effectiveDept = isTea ? 'TEA' : widget.departmentFilter;
     final filter = TransfersFilter(
       search: _search.isNotEmpty ? _search : null,
       fromDate: _fromDate,
       toDate: _toDate,
+      department: effectiveDept,
     );
     final transfersAsync = ref.watch(transfersListProvider(filter));
 
@@ -180,15 +218,17 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
           : AppBar(
               title: const Text('Department Transfers & Returns'),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.accent,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.swap_horiz_rounded),
-        label: const Text('New Transfer'),
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTransferScreen()));
-        },
-      ),
+      floatingActionButton: (widget.readOnlyActions || ref.watch(isTeaUserProvider))
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.swap_horiz_rounded),
+              label: const Text('New Transfer'),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTransferScreen()));
+              },
+            ),
       body: AmbientBackground(
         child: Column(
           children: [
@@ -248,11 +288,15 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                     return EmptyStateWidget(
                       icon: Icons.swap_horiz_rounded,
                       title: 'No transfers recorded',
-                      message: 'Record department outward transfers or kitchen/production returns.',
-                      actionLabel: '+ Record Transfer',
-                      onAction: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTransferScreen()));
-                      },
+                      message: isTea
+                          ? 'No transfers have been dispatched to the Tea department yet.'
+                          : 'Record department outward transfers or kitchen/production returns.',
+                      actionLabel: (widget.readOnlyActions || isTea) ? null : '+ Record Transfer',
+                      onAction: (widget.readOnlyActions || isTea)
+                          ? null
+                          : () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTransferScreen()));
+                            },
                     );
                   }
 
@@ -274,8 +318,6 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
   }
 
   Widget _buildTransferCard(TransferModel t) {
-    final isNetOutward = t.netChange < 0;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       child: GlassCard(
@@ -299,6 +341,49 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                         style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.accent),
                       ),
                     ),
+                    if (t.outward == 0 && t.returnUnits > 0) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                        ),
+                        child: const Text(
+                          'RETURN TO STORE',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                        ),
+                      ),
+                    ] else if (t.outward > 0 && t.returnUnits >= t.outward) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.4)),
+                        ),
+                        child: const Text(
+                          'FULLY RETURNED',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF8B5CF6)),
+                        ),
+                      ),
+                    ] else if (t.outward > 0 && t.returnUnits > 0) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                        ),
+                        child: const Text(
+                          'PARTIALLY RETURNED',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     Text(
                       AppDateFormatter.formatWithTime(t.createdAt ?? t.date),
@@ -306,11 +391,12 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                     ),
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
-                  tooltip: 'Revert & Delete Transfer',
-                  onPressed: () => _deleteTransfer(t),
-                ),
+                if (!widget.readOnlyActions && !ref.watch(isTeaUserProvider))
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                    tooltip: 'Revert & Delete Transfer',
+                    onPressed: () => _deleteTransfer(t),
+                  ),
               ],
             ),
             const SizedBox(height: 6),
@@ -340,7 +426,10 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Outward Issued', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                    Text(
+                      (ref.watch(isTeaUserProvider) || widget.departmentFilter == 'TEA') ? 'Received from Admin' : 'Outward Issued',
+                      style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                    ),
                     Text(
                       QuantityFormatter.formatDualUnit(t.outward, t.units),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
@@ -360,13 +449,13 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Net Stock Impact', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                    const Text('Current Stock', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
                     Text(
-                      '${t.netChange > 0 ? "+" : ""}${QuantityFormatter.format3Decimals(t.netChange)} ${t.units}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: isNetOutward ? AppColors.danger : AppColors.success,
+                      QuantityFormatter.formatDualUnit(t.availability, t.units),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -389,34 +478,36 @@ class _TransfersScreenState extends ConsumerState<TransfersScreen> {
                   label: const Text('View', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () => _viewTransferDetails(t),
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.secondary,
-                    side: const BorderSide(color: AppColors.secondary, width: 0.8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                if (!widget.readOnlyActions && !ref.watch(isTeaUserProvider)) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.secondary,
+                      side: const BorderSide(color: AppColors.secondary, width: 0.8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 14),
+                    label: const Text('Edit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => AddTransferScreen(existingTransfer: t)));
+                    },
                   ),
-                  icon: const Icon(Icons.edit_outlined, size: 14),
-                  label: const Text('Edit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => AddTransferScreen(existingTransfer: t)));
-                  },
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                    side: const BorderSide(color: AppColors.danger, width: 0.8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(color: AppColors.danger, width: 0.8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: const Icon(Icons.delete_outline, size: 14),
+                    label: const Text('Delete', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () => _deleteTransfer(t),
                   ),
-                  icon: const Icon(Icons.delete_outline, size: 14),
-                  label: const Text('Delete', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () => _deleteTransfer(t),
-                ),
+                ],
               ],
             ),
           ],

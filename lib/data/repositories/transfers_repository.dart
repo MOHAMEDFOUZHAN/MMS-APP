@@ -11,6 +11,7 @@ import '../../core/utils/text_standardizer.dart';
 import '../models/material_lot_model.dart';
 import '../models/material_model.dart';
 import '../models/transfer_model.dart';
+import '../../presentation/providers/app_providers.dart';
 
 class TransfersRepository {
   final Ref? _ref;
@@ -24,11 +25,16 @@ class TransfersRepository {
     DateTime? fromDate,
     DateTime? toDate,
     String? category,
+    String? department,
     int limit = 50,
     int offset = 0,
   }) async {
     try {
       var query = _client.from('transfers').select('*, transfer_lot_allocations(*)');
+
+      if (department != null && department.trim().isNotEmpty) {
+        query = query.ilike('department', department.trim());
+      }
 
       if (category != null && category.trim().isNotEmpty) {
         query = query.eq('category', category.trim().toUpperCase());
@@ -132,6 +138,10 @@ class TransfersRepository {
     DateTime? date,
     String? idempotencyKey,
   }) async {
+    if (_ref != null && _ref.read(isChocolateUserProvider)) {
+      throw AppException('Access Denied: Chocolate users cannot create or modify transfers.');
+    }
+
     final deviceId = await DeviceIdService.getDeviceId();
     final idKey = idempotencyKey ??
         'IDEMP-$deviceId-TRF-${DateTime.now().millisecondsSinceEpoch}-${DeviceIdService.generateUuid().substring(0, 6)}';
@@ -212,6 +222,10 @@ class TransfersRepository {
     required String units,
     DateTime? date,
   }) async {
+    if (_ref != null && _ref.read(isChocolateUserProvider)) {
+      throw AppException('Access Denied: Chocolate users cannot create or modify transfers.');
+    }
+
     try {
       final effectiveDate = date ?? DateTime.now();
       final payload = {
@@ -237,6 +251,10 @@ class TransfersRepository {
   }
 
   Future<bool> deleteTransfer(int transferId) async {
+    if (_ref != null && _ref.read(isChocolateUserProvider)) {
+      throw AppException('Access Denied: Chocolate users cannot delete transfers.');
+    }
+
     try {
       final response = await _client.rpc('delete_transfer', params: {
         'p_transfer_id': transferId,

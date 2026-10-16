@@ -484,7 +484,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
-        expect(find.text('Owner Settings & Configurations'), findsOneWidget);
+        expect(find.text('Management Settings & Configurations'), findsOneWidget);
         expect(find.text('Save Thresholds'), findsOneWidget);
       });
     }
